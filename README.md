@@ -4,7 +4,7 @@ Buy a meal for someone back home. The stall only gets paid when the plate is ser
 
 ![A Pendiente card ready to scan](docs/card-scan-placeholder.svg)
 
-Try it: [live site](https://pendiente.example) · [practice mode](http://localhost:5173) · [proof page](http://localhost:5173/proof)
+Try it locally: [practice mode](http://localhost:5173) · [proof page](http://localhost:5173/proof). Live site: to be set before submission.
 
 ## How it works
 
