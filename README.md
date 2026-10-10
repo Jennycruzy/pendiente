@@ -37,3 +37,5 @@ The private stall form is at `/admin`. It needs the same `ADMIN_KEY`.
 ## Under the hood
 
 The locker is a Stellar smart contract (a small program on Stellar that nobody can change). It holds USDC (digital dollars) for each meal. A React and TypeScript site creates cards and shows status. A Node server stores stall details and plate photos in SQLite. The server sends the serve and refund calls and pays their tiny network fee. Card secrets stay in the buyer’s browser and on the paper card. The public meal page never includes a secret.
+
+Build the locker with `stellar contract build`; it creates the WebAssembly file used by Stellar.
