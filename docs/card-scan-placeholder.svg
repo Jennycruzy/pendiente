@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">Pendiente card scan placeholder</title>
+  <desc id="desc">A warm placeholder illustration for the card scan demo.</desc>
+  <rect width="900" height="520" rx="24" fill="#e8eee2"/>
+  <rect x="90" y="120" width="280" height="210" rx="18" fill="#f6c650" transform="rotate(-8 90 120)"/>
+  <text x="132" y="180" fill="#10251f" font-family="Arial" font-size="18" font-weight="700">PENDIENTE</text>
+  <text x="132" y="240" fill="#10251f" font-family="Georgia" font-size="30">For Mama Bisi</text>
+  <rect x="565" y="105" width="230" height="230" rx="115" fill="#fffdf5" stroke="#d5e1d0" stroke-width="18"/>
+  <circle cx="680" cy="220" r="68" fill="#bd5935"/>
+  <circle cx="642" cy="175" r="27" fill="#f5dca0"/>
+  <circle cx="730" cy="275" r="26" fill="#4f8b51"/>
+  <path d="M395 220h118M466 165l48 55-48 55" fill="none" stroke="#174d3d" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

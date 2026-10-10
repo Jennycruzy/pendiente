@@ -1,0 +1,33 @@
+{
+  "name": "pendiente",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "node server/index.mjs",
+    "dev:all": "concurrently -k \"npm run server\" \"npm run dev\"",
+    "build": "tsc -b && vite build",
+    "check:words": "node scripts/plain-words-check.mjs",
+    "smoke:api": "node scripts/smoke-api.mjs",
+    "check": "npm run check:words && npm run build"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "better-sqlite3": "^11.10.0",
+    "concurrently": "^9.1.2",
+    "express": "latest",
+    "qrcode": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/qrcode": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  }
+}
