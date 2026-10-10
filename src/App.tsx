@@ -291,16 +291,17 @@ function AdminPage({ copy }: { copy: Copy }) {
   const [address, setAddress] = useState('')
   const [price, setPrice] = useState('300')
   const [payout, setPayout] = useState('')
+  const [adminKey, setAdminKey] = useState('')
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setSaved(false); setError('')
     try {
-      await createStall({ name, city, address, priceCents: Number(price), payoutAddress: payout })
-      setSaved(true); setName(''); setCity(''); setAddress(''); setPayout('')
+      await createStall({ name, city, address, priceCents: Number(price), payoutAddress: payout, adminKey })
+      setSaved(true); setName(''); setCity(''); setAddress(''); setPayout(''); setAdminKey('')
     } catch { setError(copy.errorGeneric) }
   }
-  return <section className="page-width admin-page"><div className="eyebrow">Pendiente</div><h1>{copy.adminTitle}</h1><p className="hero-lead">{copy.adminLead}</p><form className="admin-form" onSubmit={submit}><label>{copy.adminName}<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Iya Basira’s Buka" /></label><label>{copy.adminCity}<input required value={city} onChange={(event) => setCity(event.target.value)} placeholder="Lagos, Nigeria" /></label><label>{copy.adminAddress}<input required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="12 Market Street, Lagos" /></label><label>{copy.adminPrice}<input required min="100" type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>{copy.adminPayout}<input required value={payout} onChange={(event) => setPayout(event.target.value)} placeholder="Stall payment account" /></label><button className="button button-primary button-wide" type="submit">{copy.adminSave} →</button>{saved && <div className="admin-success">✓ {copy.adminSaved}</div>}{error && <div className="counter-error">{error}</div>}</form></section>
+  return <section className="page-width admin-page"><div className="eyebrow">Pendiente</div><h1>{copy.adminTitle}</h1><p className="hero-lead">{copy.adminLead}</p><form className="admin-form" onSubmit={submit}><label>{copy.adminName}<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Iya Basira’s Buka" /></label><label>{copy.adminCity}<input required value={city} onChange={(event) => setCity(event.target.value)} placeholder="Lagos, Nigeria" /></label><label>{copy.adminAddress}<input required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="12 Market Street, Lagos" /></label><label>{copy.adminPrice}<input required min="100" type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>{copy.adminPayout}<input required value={payout} onChange={(event) => setPayout(event.target.value)} placeholder="Stall payment account" /></label><label>{copy.adminKey}<input required type="password" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} /></label><button className="button button-primary button-wide" type="submit">{copy.adminSave} →</button>{saved && <div className="admin-success">✓ {copy.adminSaved}</div>}{error && <div className="counter-error">{error}</div>}</form></section>
 }
 
 function Loading({ copy }: { copy: Copy }) { return <section className="page-width loading-page"><div className="loading-spinner" /><span>{copy.loading}</span></section> }

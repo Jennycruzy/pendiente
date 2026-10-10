@@ -148,8 +148,9 @@ export async function refundMeal(id: string): Promise<Meal> {
 
 export async function createStall(input: AdminStallInput): Promise<Stall> {
   try {
-    return await request<Stall>('/api/admin/stalls', { method: 'POST', body: JSON.stringify(input) })
-  } catch {
+    return await request<Stall>('/api/admin/stalls', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': input.adminKey }, body: JSON.stringify(input) })
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes('not_allowed') || error.message.includes('invalid_stall'))) throw error
     const id = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || `stall-${Date.now()}`
     const stall: Stall = { id, name: input.name, city: input.city, address: input.address, priceCents: input.priceCents, active: true, photo: input.photo ?? 'plate', waitingCount: 0 }
     const stalls = localStall().filter((item) => item.id !== id)

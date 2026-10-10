@@ -65,5 +65,6 @@ export interface AdminStallInput {
   address: string
   priceCents: number
   payoutAddress: string
+  adminKey: string
   photo?: string
 }

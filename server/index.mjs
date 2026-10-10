@@ -164,7 +164,7 @@ app.get('/api/proof', (_req, res) => {
 })
 
 app.post('/api/admin/stalls', (req, res) => {
-  if (process.env.ADMIN_KEY && req.get('x-admin-key') !== process.env.ADMIN_KEY) return fail(res, 401, 'not_allowed')
+  if (!process.env.ADMIN_KEY || req.get('x-admin-key') !== process.env.ADMIN_KEY) return fail(res, 401, 'not_allowed')
   const { name, city, address, priceCents, payoutAddress = '', photo = 'plate' } = req.body || {}
   if (!name || !city || !address || Number(priceCents) < 100) return fail(res, 400, 'invalid_stall')
   const id = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || `stall-${Date.now()}`

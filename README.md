@@ -27,10 +27,12 @@ This build starts in practice mode with play money. Real meals served: 0. The pr
 
 ```sh
 npm install
-npm run dev:all
+ADMIN_KEY=choose-a-local-key npm run dev:all
 ```
 
 Open `http://localhost:5173`. The server uses SQLite and the browser falls back to local practice data when the server is not running.
+
+The private stall form is at `/admin`. It needs the same `ADMIN_KEY`.
 
 ## Under the hood
 
