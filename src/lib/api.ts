@@ -43,14 +43,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   })
-  if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? `Request failed: ${response.status}`)
+  if (!response.ok) {
+    const error = new Error((await response.json().catch(() => null))?.error ?? `Request failed: ${response.status}`)
+    error.name = 'ApiError'
+    throw error
+  }
   return response.json() as Promise<T>
 }
 
 export async function getStalls(): Promise<Stall[]> {
   try {
     return await request<Stall[]>('/api/stalls')
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ApiError') throw error
     const meals = readLocalMeals()
     return localStall().map((stall) => ({
       ...stall,
@@ -62,7 +67,8 @@ export async function getStalls(): Promise<Stall[]> {
 export async function getMeal(id: string): Promise<Meal | null> {
   try {
     return await request<Meal>(`/api/meals/${encodeURIComponent(id)}`)
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ApiError' && error.message !== 'not_found') throw error
     return readLocalMeals().find((meal) => meal.id === id) ?? null
   }
 }
@@ -70,7 +76,8 @@ export async function getMeal(id: string): Promise<Meal | null> {
 export async function createMeal(input: MealCreateInput): Promise<Meal> {
   try {
     return await request<Meal>('/api/meals', { method: 'POST', body: JSON.stringify(input) })
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ApiError') throw error
     const stall = localStall().find((item) => item.id === input.stallId) ?? starterStall
     const id = `practice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
     const now = new Date()
@@ -96,7 +103,8 @@ export async function createMeal(input: MealCreateInput): Promise<Meal> {
 export async function serveMeal(id: string, input: ServeInput): Promise<Meal> {
   try {
     return await request<Meal>(`/api/meals/${encodeURIComponent(id)}/serve`, { method: 'POST', body: JSON.stringify(input) })
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ApiError') throw error
     const meals = readLocalMeals()
     const meal = meals.find((item) => item.id === id)
     if (!meal) throw new Error('not_found')
@@ -115,7 +123,8 @@ export async function serveMeal(id: string, input: ServeInput): Promise<Meal> {
 export async function checkMealCard(input: CardCheckInput): Promise<Meal> {
   try {
     return await request<Meal>('/api/counter/check', { method: 'POST', body: JSON.stringify(input) })
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ApiError') throw error
     const meals = readLocalMeals()
     const byId = input.mealId ? meals.filter((meal) => meal.id === input.mealId) : meals
     const secretFingerprint = input.secret ? await sha256(input.secret) : undefined
@@ -137,7 +146,8 @@ export async function checkMealCard(input: CardCheckInput): Promise<Meal> {
 export async function getProof(): Promise<Meal[]> {
   try {
     return await request<Meal[]>('/api/proof')
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ApiError') throw error
     return readLocalMeals().sort((a, b) => b.boughtAt.localeCompare(a.boughtAt))
   }
 }
@@ -150,7 +160,7 @@ export async function createStall(input: AdminStallInput): Promise<Stall> {
   try {
     return await request<Stall>('/api/admin/stalls', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': input.adminKey }, body: JSON.stringify(input) })
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('not_allowed') || error.message.includes('invalid_stall'))) throw error
+    if (error instanceof Error && error.name === 'ApiError') throw error
     const id = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || `stall-${Date.now()}`
     const stall: Stall = { id, name: input.name, city: input.city, address: input.address, priceCents: input.priceCents, active: true, photo: input.photo ?? 'plate', waitingCount: 0 }
     const stalls = localStall().filter((item) => item.id !== id)

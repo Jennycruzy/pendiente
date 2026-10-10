@@ -166,7 +166,7 @@ app.get('/api/proof', (_req, res) => {
 app.post('/api/admin/stalls', (req, res) => {
   if (!process.env.ADMIN_KEY || req.get('x-admin-key') !== process.env.ADMIN_KEY) return fail(res, 401, 'not_allowed')
   const { name, city, address, priceCents, payoutAddress = '', photo = 'plate' } = req.body || {}
-  if (!name || !city || !address || Number(priceCents) < 100) return fail(res, 400, 'invalid_stall')
+  if (!name || !city || !address || !payoutAddress || Number(priceCents) < 100) return fail(res, 400, 'invalid_stall')
   const id = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || `stall-${Date.now()}`
   db.prepare('INSERT INTO stalls (id, name, city, address, price_cents, payout_address, photo, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)').run(id, name, city, address, Number(priceCents), String(payoutAddress), photo, new Date().toISOString())
   res.status(201).json(publicStall(db.prepare('SELECT * FROM stalls WHERE id = ?').get(id)))
