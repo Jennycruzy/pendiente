@@ -140,7 +140,7 @@ impl PendienteLocker {
         if env.ledger().timestamp() > meal.expires_at {
             panic!("meal expired")
         }
-        if env.crypto().sha256(&secret.into()) != meal.fingerprint {
+        if env.crypto().sha256(&secret.into()).to_bytes() != meal.fingerprint {
             panic!("wrong secret")
         }
         meal.status = MealStatus::Served;
