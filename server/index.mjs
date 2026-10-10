@@ -1,7 +1,7 @@
 import express from 'express'
 import Database from 'better-sqlite3'
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 const port = Number(process.env.PORT || 3001)
@@ -56,7 +56,6 @@ const publicMeal = (meal) => meal ? {
   stallId: meal.stall_id,
   firstName: meal.first_name || undefined,
   message: meal.message || undefined,
-  email: meal.email || undefined,
   amountCents: meal.amount_cents,
   status: meal.status,
   boughtAt: meal.bought_at,
