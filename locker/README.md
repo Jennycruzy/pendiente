@@ -33,3 +33,5 @@ The tested practice locker is live on Stellar testnet:
 It uses a 120-second return time. Meal 1 was served once, and its second serve was refused. Meal 2 returned its full play-money amount after expiry. Meal 3 was bought and served through the Node server with its typed backup code.
 
 The VPS keeps the test identity under the alias `pendiente-testnet`. Its secret is not stored in this repository.
+
+The practice site is live at `https://pendiente.54-154-121-30.sslip.io`.

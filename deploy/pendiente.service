@@ -1,0 +1,25 @@
+[Unit]
+Description=Pendiente meal server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/pendiente
+Environment=PORT=3011
+Environment=PENDIENTE_DB=/home/ubuntu/pendiente-data/pendiente.sqlite
+Environment=PRACTICE_EXPIRY_MINUTES=2
+Environment=STELLAR_ENABLED=true
+Environment=STELLAR_CONTRACT_ID=CCD3BHXH6WQM7XXU3EWR5S4KW7TQOHBNZ4VTKLJ3HBAFWFUFWB4ULQAR
+Environment=STELLAR_SOURCE_ACCOUNT=pendiente-testnet
+Environment=STELLAR_NETWORK=testnet
+Environment=STELLAR_CLI_PATH=/usr/local/bin/stellar
+ExecStart=/usr/bin/node server/index.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

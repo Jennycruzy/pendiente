@@ -4,7 +4,7 @@ Buy a meal for someone back home. The stall only gets paid when the plate is ser
 
 ![A Pendiente card ready to scan](docs/card-scan-placeholder.svg)
 
-Try it locally: [practice mode](http://localhost:5173) · [proof page](http://localhost:5173/proof). Live site: to be set before submission.
+Try it: [practice mode](https://pendiente.54-154-121-30.sslip.io) · [proof page](https://pendiente.54-154-121-30.sslip.io/proof).
 
 ## How it works
 
@@ -30,7 +30,7 @@ npm install
 ADMIN_KEY=choose-a-local-key npm run dev:all
 ```
 
-Open `http://localhost:5173`. The server uses SQLite and the browser falls back to local practice data when the server is not running.
+Open `http://localhost:5173`. The server uses SQLite. The browser uses local practice data when the server is not running.
 
 The default build is practice mode. Copy `.env.example` only when changing the mode.
 
