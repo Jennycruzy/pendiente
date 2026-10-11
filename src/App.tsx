@@ -10,6 +10,7 @@ import { backupCodeFromSecret, randomSecret, sha256 } from './lib/crypto'
 import { copy as translations, type Copy } from './lib/i18n'
 import { checkMealCard, createMeal, createStall, getMeal, getProof, getStalls, serveMeal, starterStall } from './lib/api'
 import type { CardSecret, Language, Meal, Stall } from './lib/types'
+import { connectStellarWallet, practiceMode } from './lib/wallet'
 import { BrowserRouter } from 'react-router-dom'
 
 const cardStorageKey = 'pendiente.cards.v1'
@@ -171,6 +172,7 @@ function PaymentPage({ copy }: { copy: Copy }) {
   const approve = async () => {
     setApproving(true); setError('')
     try {
+      if (!practiceMode) { setError(copy.livePaymentsPending); setApproving(false); return }
       const secret = randomSecret()
       const backupCode = backupCodeFromSecret(secret)
       const meal = await createMeal({ stallId: stall.id, firstName: form.firstName, message: form.message, email: form.email, secretFingerprint: await sha256(secret), backupFingerprint: await sha256(backupCode), practice: true })
@@ -181,9 +183,14 @@ function PaymentPage({ copy }: { copy: Copy }) {
       setApproving(false)
     }
   }
+  const connect = async () => {
+    setError('')
+    if (practiceMode) { setConnected(true); return }
+    try { await connectStellarWallet(); setConnected(true) } catch { setError(copy.walletError) }
+  }
   return <section className="page-width payment-page">
     <Link className="back-link" to={`/stall/${stall.id}`}>← {copy.stallBack}</Link>
-    <div className="payment-layout"><div><div className="eyebrow">{copy.paymentLabel}</div><h1>{copy.paymentTitle}</h1><p className="hero-lead">{form.firstName ? `${copy.paymentFor} ${form.firstName} ${copy.paymentAt.toLowerCase()} ${stall.name}.` : `${copy.paymentAt} ${stall.name}.`}</p><div className="payment-note"><strong>{money(stall.priceCents)} {copy.paymentAt.toLowerCase()} {stall.name}.</strong><span>{copy.returnLine}</span></div></div><div className="payment-box"><div className="payment-row"><span>{copy.paymentMeal}</span><strong>{money(stall.priceCents)}</strong></div><div className="payment-row"><span>{copy.paymentStall}</span><strong>{stall.name}</strong></div><div className="payment-rule" />{!connected ? <button className="button button-dark button-wide" type="button" onClick={() => setConnected(true)}>{copy.connect} <span aria-hidden="true">→</span></button> : <button className="button button-primary button-wide" type="button" disabled={approving} onClick={approve}>{approving ? copy.approving : copy.approve} {!approving && <span aria-hidden="true">→</span>}</button>}{error && <p className="form-error">{error}</p>}<small className="payment-safe">{copy.paymentSafe}</small></div></div>
+    <div className="payment-layout"><div><div className="eyebrow">{copy.paymentLabel}</div><h1>{copy.paymentTitle}</h1><p className="hero-lead">{form.firstName ? `${copy.paymentFor} ${form.firstName} ${copy.paymentAt.toLowerCase()} ${stall.name}.` : `${copy.paymentAt} ${stall.name}.`}</p><div className="payment-note"><strong>{money(stall.priceCents)} {copy.paymentAt.toLowerCase()} {stall.name}.</strong><span>{copy.returnLine}</span></div></div><div className="payment-box"><div className="payment-row"><span>{copy.paymentMeal}</span><strong>{money(stall.priceCents)}</strong></div><div className="payment-row"><span>{copy.paymentStall}</span><strong>{stall.name}</strong></div><div className="payment-rule" />{!connected ? <button className="button button-dark button-wide" type="button" onClick={connect}>{practiceMode ? copy.practiceContinue : copy.connect} <span aria-hidden="true">→</span></button> : <button className="button button-primary button-wide" type="button" disabled={approving} onClick={approve}>{approving ? copy.approving : copy.approve} {!approving && <span aria-hidden="true">→</span>}</button>}{error && <p className="form-error">{error}</p>}<small className="payment-safe">{practiceMode ? copy.paymentSafe : copy.livePaymentsPending}</small></div></div>
   </section>
 }
 
