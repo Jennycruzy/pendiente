@@ -1,5 +1,5 @@
 import type { AdminStallInput, CardCheckInput, Meal, MealCreateInput, ServeInput, Stall } from './types'
-import { sha256 } from './crypto'
+import { fingerprintSecret, secretFromBackupCode, sha256 } from './crypto'
 
 const localMealsKey = 'pendiente.local.meals.v1'
 const localStallsKey = 'pendiente.local.stalls.v1'
@@ -90,7 +90,7 @@ export async function createMeal(input: MealCreateInput): Promise<Meal> {
       amountCents: stall.priceCents,
       status: 'Waiting',
       boughtAt: now.toISOString(),
-      expiresAt: new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(now.getTime() + 2 * 60 * 1000).toISOString(),
       paymentLink: `https://stellar.expert/explorer/testnet/tx/${id}`,
       secretFingerprint: input.secretFingerprint,
       backupFingerprint: input.backupFingerprint,
@@ -111,8 +111,10 @@ export async function serveMeal(id: string, input: ServeInput): Promise<Meal> {
     if (meal.stallId !== input.stallId) throw new Error('wrong_stall')
     if (meal.status !== 'Waiting') throw new Error('already_used')
     if (new Date(meal.expiresAt).getTime() < Date.now()) throw new Error('expired')
-    const valid = input.secret && await sha256(input.secret) === meal.secretFingerprint
-    const backupValid = input.backupCode && await sha256(input.backupCode) === meal.backupFingerprint
+    const valid = input.secret && await fingerprintSecret(input.secret) === meal.secretFingerprint
+    const backupValid = input.backupCode &&
+      await fingerprintSecret(await secretFromBackupCode(input.backupCode)) === meal.secretFingerprint &&
+      await sha256(input.backupCode) === meal.backupFingerprint
     if (!valid && !backupValid) throw new Error('wrong_code')
     const served: LocalMeal = { ...meal, status: 'Served', servedAt: new Date().toISOString(), photoData: input.photoData }
     writeLocalMeals(meals.map((item) => item.id === id ? served : item))
@@ -127,7 +129,7 @@ export async function checkMealCard(input: CardCheckInput): Promise<Meal> {
     if (error instanceof Error && error.name === 'ApiError') throw error
     const meals = readLocalMeals()
     const byId = input.mealId ? meals.filter((meal) => meal.id === input.mealId) : meals
-    const secretFingerprint = input.secret ? await sha256(input.secret) : undefined
+    const secretFingerprint = input.secret ? await fingerprintSecret(input.secret) : undefined
     const backupFingerprint = input.backupCode ? await sha256(input.backupCode) : undefined
     const meal = byId.find((item) => item.stallId === input.stallId &&
       ((secretFingerprint && item.secretFingerprint === secretFingerprint) ||

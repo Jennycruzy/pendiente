@@ -6,7 +6,7 @@ import { Layout } from './components/Layout'
 import { PlateArt } from './components/PlateArt'
 import { StallPhoto } from './components/StallPhoto'
 import { StatusBadge } from './components/StatusBadge'
-import { backupCodeFromSecret, randomSecret, sha256 } from './lib/crypto'
+import { fingerprintSecret, newCardCredentials, sha256 } from './lib/crypto'
 import { copy as translations, type Copy } from './lib/i18n'
 import { checkMealCard, createMeal, createStall, getMeal, getProof, getStalls, serveMeal, starterStall } from './lib/api'
 import type { CardSecret, Language, Meal, Stall } from './lib/types'
@@ -173,9 +173,8 @@ function PaymentPage({ copy }: { copy: Copy }) {
     setApproving(true); setError('')
     try {
       if (!practiceMode) { setError(copy.livePaymentsPending); setApproving(false); return }
-      const secret = randomSecret()
-      const backupCode = backupCodeFromSecret(secret)
-      const meal = await createMeal({ stallId: stall.id, firstName: form.firstName, message: form.message, email: form.email, secretFingerprint: await sha256(secret), backupFingerprint: await sha256(backupCode), practice: true })
+      const { secret, backupCode } = await newCardCredentials()
+      const meal = await createMeal({ stallId: stall.id, firstName: form.firstName, message: form.message, email: form.email, secretFingerprint: await fingerprintSecret(secret), backupFingerprint: await sha256(backupCode), practice: true })
       saveCard({ mealId: meal.id, stallId: meal.stallId, secret, backupCode })
       navigate(`/meal/${meal.id}/card`, { replace: true })
     } catch {

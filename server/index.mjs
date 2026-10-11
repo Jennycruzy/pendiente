@@ -3,6 +3,7 @@ import Database from 'better-sqlite3'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { buyOnStellar, keepAliveOnStellar, refundOnStellar, serveOnStellar, stellarIsEnabled } from './stellar.mjs'
 
 const port = Number(process.env.PORT || 3001)
 const databasePath = process.env.PENDIENTE_DB || resolve(process.cwd(), 'server/pendiente.sqlite')
@@ -36,9 +37,11 @@ db.exec(`
     served_at TEXT,
     photo_data TEXT,
     payment_link TEXT
+    ,chain_meal_id INTEGER
   );
 `)
 try { db.exec("ALTER TABLE stalls ADD COLUMN payout_address TEXT NOT NULL DEFAULT ''") } catch { /* already present */ }
+try { db.exec('ALTER TABLE meals ADD COLUMN chain_meal_id INTEGER') } catch { /* already present */ }
 
 const seed = db.prepare('SELECT id FROM stalls WHERE id = ?').get('iya-basiras-buka')
 if (!seed) {
@@ -51,6 +54,11 @@ const app = express()
 app.use(express.json({ limit: '650kb' }))
 
 const hash = (value) => createHash('sha256').update(String(value)).digest('hex')
+const fingerprintSecret = (value) => {
+  if (!/^[0-9a-f]{64}$/i.test(String(value))) return ''
+  return createHash('sha256').update(Buffer.from(String(value), 'hex')).digest('hex')
+}
+const secretFromBackupCode = (value) => hash(String(value).toUpperCase())
 const publicMeal = (meal) => meal ? {
   id: meal.id,
   stallId: meal.stall_id,
@@ -81,7 +89,12 @@ function photoIsSafe(photoData) {
   if (!photoData) return true
   if (typeof photoData !== 'string' || !/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(photoData)) return false
   const encoded = photoData.split(',')[1] || ''
-  return Buffer.from(encoded, 'base64').byteLength <= 300 * 1024
+  const bytes = Buffer.from(encoded, 'base64')
+  if (!bytes.length || bytes.byteLength > 300 * 1024) return false
+  const jpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+  const png = bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  const webp = bytes.length >= 12 && bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP'
+  return jpeg || png || webp
 }
 
 function findMealForCard({ stallId, mealId, secret, backupCode }) {
@@ -92,34 +105,38 @@ function findMealForCard({ stallId, mealId, secret, backupCode }) {
       : null
   if (!candidate) return { error: 'not_found' }
   if (candidate.stall_id !== stallId) return { error: 'wrong_stall' }
-  const secretMatches = secret ? candidate.secret_fingerprint === hash(secret) : false
-  const backupMatches = backupCode ? candidate.backup_fingerprint === hash(backupCode) : false
+  const secretMatches = secret ? candidate.secret_fingerprint === fingerprintSecret(secret) : false
+  const backupMatches = backupCode
+    ? candidate.backup_fingerprint === hash(backupCode) && candidate.secret_fingerprint === fingerprintSecret(secretFromBackupCode(backupCode))
+    : false
   if (!secretMatches && !backupMatches) return { error: 'wrong_code' }
   if (candidate.status !== 'Waiting') return { error: 'already_used' }
   if (new Date(candidate.expires_at).getTime() <= Date.now()) return { error: 'expired' }
   return { meal: candidate }
 }
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, mode: 'practice' }))
+app.get('/api/health', (_req, res) => res.json({ ok: true, mode: 'practice', stellar: stellarIsEnabled() }))
 
 app.get('/api/stalls', (_req, res) => {
   const stalls = db.prepare('SELECT * FROM stalls WHERE active = 1 ORDER BY created_at ASC').all().map(publicStall)
   res.json(stalls)
 })
 
-app.post('/api/meals', (req, res) => {
+app.post('/api/meals', async (req, res) => {
   const { stallId, firstName = '', message = '', email = '', secretFingerprint, backupFingerprint } = req.body || {}
   if (!stallId || !secretFingerprint || !backupFingerprint) return fail(res, 400, 'missing_fields')
   if (String(message).length > 80) return fail(res, 400, 'message_too_long')
   const stall = db.prepare('SELECT * FROM stalls WHERE id = ? AND active = 1').get(stallId)
   if (!stall) return fail(res, 400, 'stall_unavailable')
   const now = new Date()
-  const practiceMinutes = Number(process.env.PRACTICE_EXPIRY_MINUTES || 30240)
+  const practiceMinutes = Number(process.env.PRACTICE_EXPIRY_MINUTES || 2)
   const expires = new Date(now.getTime() + practiceMinutes * 60 * 1000)
   const id = `meal-${randomUUID().slice(0, 8)}`
-  db.prepare(`INSERT INTO meals (id, stall_id, first_name, message, email, amount_cents, secret_fingerprint, backup_fingerprint, bought_at, expires_at, status, payment_link)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Waiting', ?)`)
-    .run(id, stallId, String(firstName).slice(0, 40), String(message), String(email).slice(0, 160), stall.price_cents, secretFingerprint, backupFingerprint, now.toISOString(), expires.toISOString(), `https://stellar.expert/explorer/testnet/tx/practice-${id}`)
+  let chain = null
+  try { chain = await buyOnStellar({ stallId: 1, fingerprint: secretFingerprint }) } catch { return fail(res, 502, 'payment_not_sent') }
+  db.prepare(`INSERT INTO meals (id, stall_id, first_name, message, email, amount_cents, secret_fingerprint, backup_fingerprint, bought_at, expires_at, status, payment_link, chain_meal_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Waiting', ?, ?)`)
+    .run(id, stallId, String(firstName).slice(0, 40), String(message), String(email).slice(0, 160), stall.price_cents, secretFingerprint, backupFingerprint, now.toISOString(), expires.toISOString(), chain?.paymentLink || `https://stellar.expert/explorer/testnet/contract/${process.env.STELLAR_CONTRACT_ID || ''}`, chain?.mealId || null)
   res.status(201).json(publicMeal(db.prepare('SELECT * FROM meals WHERE id = ?').get(id)))
 })
 
@@ -137,23 +154,28 @@ app.post('/api/counter/check', (req, res) => {
   res.json(publicMeal(result.meal))
 })
 
-app.post('/api/meals/:id/serve', (req, res) => {
+app.post('/api/meals/:id/serve', async (req, res) => {
   const { stallId, secret, backupCode, photoData } = req.body || {}
   if (!stallId || (!secret && !backupCode)) return fail(res, 400, 'missing_fields')
   if (!photoIsSafe(photoData)) return fail(res, 413, 'photo_too_large_or_not_a_photo')
   const result = findMealForCard({ stallId, mealId: req.params.id, secret, backupCode })
   if (result.error) return fail(res, result.error === 'wrong_stall' ? 403 : result.error === 'wrong_code' ? 401 : 409, result.error)
+  const cardSecret = secret || secretFromBackupCode(backupCode)
+  try {
+    if (result.meal.chain_meal_id) await serveOnStellar({ mealId: result.meal.chain_meal_id, secret: cardSecret })
+  } catch { return fail(res, 502, 'payment_not_sent') }
   const servedAt = new Date().toISOString()
   const changed = db.prepare("UPDATE meals SET status = 'Served', served_at = ?, photo_data = ? WHERE id = ? AND status = 'Waiting'").run(servedAt, photoData || null, req.params.id)
   if (changed.changes !== 1) return fail(res, 409, 'already_used')
   res.json(publicMeal(db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id)))
 })
 
-app.post('/api/meals/:id/refund', (req, res) => {
+app.post('/api/meals/:id/refund', async (req, res) => {
   const meal = db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id)
   if (!meal) return fail(res, 404, 'not_found')
   if (meal.status !== 'Waiting') return fail(res, 409, 'already_used')
   if (new Date(meal.expires_at).getTime() > Date.now()) return fail(res, 409, 'not_expired')
+  try { if (meal.chain_meal_id) await refundOnStellar(meal.chain_meal_id) } catch { return fail(res, 502, 'return_not_sent') }
   db.prepare("UPDATE meals SET status = 'Returned' WHERE id = ? AND status = 'Waiting'").run(req.params.id)
   res.json(publicMeal(db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id)))
 })
@@ -173,9 +195,17 @@ app.post('/api/admin/stalls', (req, res) => {
   res.status(201).json(publicStall(db.prepare('SELECT * FROM stalls WHERE id = ?').get(id)))
 })
 
-function returnExpiredMeals() {
-  db.prepare("UPDATE meals SET status = 'Returned' WHERE status = 'Waiting' AND expires_at <= ?").run(new Date().toISOString())
+async function returnExpiredMeals() {
+  const expired = db.prepare("SELECT * FROM meals WHERE status = 'Waiting' AND expires_at <= ?").all(new Date().toISOString())
+  for (const meal of expired) {
+    try {
+      if (meal.chain_meal_id) await refundOnStellar(meal.chain_meal_id)
+      db.prepare("UPDATE meals SET status = 'Returned' WHERE id = ? AND status = 'Waiting'").run(meal.id)
+    } catch { /* retry on the next run */ }
+  }
+  const waiting = db.prepare("SELECT chain_meal_id FROM meals WHERE status = 'Waiting' AND chain_meal_id IS NOT NULL").all()
+  for (const meal of waiting) await keepAliveOnStellar(meal.chain_meal_id).catch(() => {})
 }
-setInterval(returnExpiredMeals, 60_000).unref()
+setInterval(() => { void returnExpiredMeals() }, 60_000).unref()
 
 app.listen(port, () => console.log(`Pendiente practice server listening on http://localhost:${port}`))

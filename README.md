@@ -21,7 +21,7 @@ Try it locally: [practice mode](http://localhost:5173) · [proof page](http://lo
 
 ## What is real
 
-This build starts in practice mode with play money. Real meals served: 0. The proof page will link each real meal after the stall filming day.
+This build starts in practice mode with play money. The [testnet locker](https://stellar.expert/explorer/testnet/tx/e26ab681325c264554243ff6aaa9865e6c49dfdb675214027d8643d15ab68179) has served one test meal and returned another. Real meals served: 0.
 
 ## Run it locally
 

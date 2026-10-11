@@ -5,6 +5,7 @@ await import('../server/index.mjs')
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const fingerprint = (value) => createHash('sha256').update(value).digest('hex')
+const secretFingerprint = (value) => createHash('sha256').update(Buffer.from(value, 'hex')).digest('hex')
 const request = async (path, options) => {
   const response = await fetch(`http://localhost:3001${path}`, {
     headers: { 'content-type': 'application/json' },
@@ -14,14 +15,14 @@ const request = async (path, options) => {
 }
 
 await wait(180)
-const secret = `smoke-${randomUUID()}`
 const backupCode = 'SMOKE123'
+const secret = fingerprint(backupCode)
 const created = await request('/api/meals', {
   method: 'POST',
   body: JSON.stringify({
     stallId: 'iya-basiras-buka',
     firstName: 'Smoke test',
-    secretFingerprint: fingerprint(secret),
+    secretFingerprint: secretFingerprint(secret),
     backupFingerprint: fingerprint(backupCode),
     practice: true,
   }),
@@ -54,11 +55,15 @@ if (/fingerprint|secret|backup/i.test(publicText)) throw new Error(`public meal 
 const nonAdmin = await request('/api/admin/stalls', { method: 'POST', body: JSON.stringify({ name: 'No key', city: 'Lagos', address: 'Nowhere', priceCents: 300 }) })
 if (nonAdmin.status !== 401 || nonAdmin.body.error !== 'not_allowed') throw new Error(`non-admin add passed: ${JSON.stringify(nonAdmin)}`)
 
-const admin = await request('/api/admin/stalls', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': process.env.ADMIN_KEY }, body: JSON.stringify({ name: `Smoke Stall ${randomUUID().slice(0, 6)}`, city: 'Lagos', address: 'Smoke Street', priceCents: 300, payoutAddress: 'GSMOKE', photo: 'data:image/jpeg;base64,ZmFrZQ==' }) })
+const onePixelPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB'
+const admin = await request('/api/admin/stalls', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': process.env.ADMIN_KEY }, body: JSON.stringify({ name: `Smoke Stall ${randomUUID().slice(0, 6)}`, city: 'Lagos', address: 'Smoke Street', priceCents: 300, payoutAddress: 'GSMOKE', photo: onePixelPng }) })
 if (admin.status !== 201) throw new Error(`admin add failed: ${JSON.stringify(admin.body)}`)
 
 const badPhoto = await request('/api/admin/stalls', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': process.env.ADMIN_KEY }, body: JSON.stringify({ name: `Bad Photo ${randomUUID().slice(0, 6)}`, city: 'Lagos', address: 'Smoke Street', priceCents: 300, payoutAddress: 'GSMOKE', photo: 'data:text/plain;base64,ZmFrZQ==' }) })
 if (badPhoto.status !== 413 || badPhoto.body.error !== 'photo_too_large_or_not_a_photo') throw new Error(`bad photo passed: ${JSON.stringify(badPhoto.body)}`)
 
-console.log(JSON.stringify({ ok: true, checks: ['buy', 'wrong code refused', 'backup code accepted', 'wrong stall refused', 'early refund refused', 'serve once', 'second serve refused', 'public page has no card secret', 'non-admin add refused', 'admin stall photo accepted', 'non-photo refused'], mealId: id }))
+const fakePhoto = await request('/api/admin/stalls', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': process.env.ADMIN_KEY }, body: JSON.stringify({ name: `Fake Photo ${randomUUID().slice(0, 6)}`, city: 'Lagos', address: 'Smoke Street', priceCents: 300, payoutAddress: 'GSMOKE', photo: 'data:image/jpeg;base64,ZmFrZQ==' }) })
+if (fakePhoto.status !== 413 || fakePhoto.body.error !== 'photo_too_large_or_not_a_photo') throw new Error(`fake photo passed: ${JSON.stringify(fakePhoto.body)}`)
+
+console.log(JSON.stringify({ ok: true, checks: ['buy', 'wrong code refused', 'backup code accepted', 'wrong stall refused', 'early refund refused', 'serve once', 'second serve refused', 'public page has no card secret', 'non-admin add refused', 'admin stall photo accepted', 'non-photo refused', 'fake photo refused'], mealId: id }))
 process.exit(0)

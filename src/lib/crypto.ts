@@ -1,31 +1,32 @@
-const fallbackHash = (value: string) => {
-  let hash = 2166136261
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return `fallback-${(hash >>> 0).toString(16).padStart(8, '0')}`
+async function digest(bytes: Uint8Array): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error('secure_crypto_unavailable')
+  const result = await globalThis.crypto.subtle.digest('SHA-256', bytes as BufferSource)
+  return Array.from(new Uint8Array(result), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 export async function sha256(value: string): Promise<string> {
-  if (globalThis.crypto?.subtle) {
-    const bytes = new TextEncoder().encode(value)
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes)
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
-  }
-  return fallbackHash(value)
+  return digest(new TextEncoder().encode(value))
 }
 
-export function randomSecret(): string {
-  const bytes = new Uint8Array(32)
-  if (globalThis.crypto?.getRandomValues) {
-    globalThis.crypto.getRandomValues(bytes)
-  } else {
-    for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256)
-  }
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+export async function fingerprintSecret(secret: string): Promise<string> {
+  if (!/^[0-9a-f]{64}$/i.test(secret)) throw new Error('invalid_card_secret')
+  const bytes = Uint8Array.from(secret.match(/.{2}/g) ?? [], (pair) => Number.parseInt(pair, 16))
+  return digest(bytes)
 }
 
-export function backupCodeFromSecret(secret: string): string {
-  return secret.slice(0, 8).toUpperCase()
+export function randomBackupCode(): string {
+  if (!globalThis.crypto?.getRandomValues) throw new Error('secure_crypto_unavailable')
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const bytes = new Uint8Array(8)
+  globalThis.crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('')
+}
+
+export async function secretFromBackupCode(backupCode: string): Promise<string> {
+  return sha256(backupCode.toUpperCase())
+}
+
+export async function newCardCredentials(): Promise<{ secret: string; backupCode: string }> {
+  const backupCode = randomBackupCode()
+  return { backupCode, secret: await secretFromBackupCode(backupCode) }
 }
