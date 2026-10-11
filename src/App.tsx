@@ -193,7 +193,18 @@ function MealCardPage({ copy }: { copy: Copy }) {
   const [stall, setStall] = useState<Stall>(starterStall)
   const [qrDataUrl, setQrDataUrl] = useState('')
   const card = mealId ? cardFor(mealId) : undefined
-  useEffect(() => { if (!mealId) return; getMeal(mealId).then((item) => { if (item) setMeal(item); return getStalls() }).then((items) => { if (items) setStall(items.find((item) => item.id === meal?.stallId) ?? starterStall) }) }, [mealId, meal?.stallId])
+  useEffect(() => {
+    if (!mealId) return
+    let active = true
+    getMeal(mealId).then(async (item) => {
+      if (!active) return
+      if (!item) { setMeal(null); return }
+      setMeal(item)
+      const stalls = await getStalls()
+      if (active) setStall(stalls.find((stall) => stall.id === item.stallId) ?? starterStall)
+    }).catch(() => { if (active) setMeal(null) })
+    return () => { active = false }
+  }, [mealId])
   useEffect(() => { if (!meal || !card) return; QRCode.toDataURL(JSON.stringify({ v: 1, mealId: meal.id, stallId: meal.stallId, secret: card.secret }), { width: 360, margin: 1, color: { dark: '#10251f', light: '#fffdf5' } }).then(setQrDataUrl) }, [meal, card])
   if (!meal || !card) return <section className="page-width empty-page"><h1>{copy.errorNotFound}</h1><Link className="button button-primary" to="/">{copy.navHome}</Link></section>
   const shareText = `A meal is waiting at ${stall.name}. ${window.location.origin}/meal/${meal.id}`
