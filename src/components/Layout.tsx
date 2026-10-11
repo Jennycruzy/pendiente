@@ -26,11 +26,11 @@ export function Layout({ children, copy, language, toggleLanguage }: LayoutProps
         {isPractice ? copy.practice : copy.practice}
       </div>
       <header className="topbar">
-        <Link className="brand" to="/" aria-label="Pendiente home">
+        <Link className="brand" to="/" aria-label="Pendiente">
           <span className="brand-mark" aria-hidden="true">P</span>
           <span>Pendiente</span>
         </Link>
-        <nav className="topnav" aria-label="Main navigation">
+        <nav className="topnav" aria-label={copy.mainNavigation}>
           {links.map((link) => (
             <Link key={link.href} className={location.pathname === link.href ? 'active' : ''} to={link.href}>
               {link.label}
@@ -38,7 +38,7 @@ export function Layout({ children, copy, language, toggleLanguage }: LayoutProps
           ))}
           <Link className="board-link" to="/chalkboard">{copy.navBoard}</Link>
         </nav>
-        <button className="language-toggle" onClick={toggleLanguage} type="button" aria-label={`Switch to ${copy.language}`}>
+        <button className="language-toggle" onClick={toggleLanguage} type="button" aria-label={`${copy.switchTo} ${copy.language}`}>
           {language === 'en' ? 'ES' : 'EN'}
         </button>
       </header>

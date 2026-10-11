@@ -81,7 +81,7 @@ function HomePage({ copy }: { copy: Copy }) {
           </div>
           <div className="hero-note"><span className="note-check">✓</span> {copy.noOnePaid}</div>
         </div>
-        <div className="hero-art" aria-label="A meal card beside a plate">
+        <div className="hero-art" aria-label={copy.heroArtLabel}>
           <div className="sun-disc" />
           <div className="hero-card-stack">
             <div className="mini-card mini-card-back" />
@@ -90,7 +90,7 @@ function HomePage({ copy }: { copy: Copy }) {
             </div>
           </div>
           <PlateArt />
-          <span className="hero-sticker">served<br /><strong>with care</strong></span>
+          <span className="hero-sticker">{copy.servedWithCare}</span>
         </div>
       </section>
 
@@ -207,7 +207,7 @@ function MealCardPage({ copy }: { copy: Copy }) {
   }, [mealId])
   useEffect(() => { if (!meal || !card) return; QRCode.toDataURL(JSON.stringify({ v: 1, mealId: meal.id, stallId: meal.stallId, secret: card.secret }), { width: 360, margin: 1, color: { dark: '#10251f', light: '#fffdf5' } }).then(setQrDataUrl) }, [meal, card])
   if (!meal || !card) return <section className="page-width empty-page"><h1>{copy.errorNotFound}</h1><Link className="button button-primary" to="/">{copy.navHome}</Link></section>
-  const shareText = `A meal is waiting at ${stall.name}. ${window.location.origin}/meal/${meal.id}`
+  const shareText = `${copy.shareMessage} ${stall.name}. ${window.location.origin}/meal/${meal.id}`
   return <section className="page-width card-page"><div className="eyebrow">{copy.paymentComplete}</div><h1>{copy.cardTitle}</h1><p className="hero-lead">{copy.cardLead}</p><div className="card-wrap"><CardPreview meal={meal} stall={stall} qrDataUrl={qrDataUrl} backupCode={card.backupCode} copy={copy} /></div><p className="card-warning"><span>◎</span> {copy.cardWarning}</p><div className="card-actions"><a className="button button-primary" href={qrDataUrl} download={`pendiente-${meal.id}.png`}>{copy.download} ↓</a><button className="button button-light" type="button" onClick={() => window.print()}>{copy.print}</button><a className="button button-light" href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">{copy.share}</a></div><Link className="text-link centered-link" to={`/meal/${meal.id}`}>{copy.openMealPage} ↗</Link></section>
 }
 
@@ -218,7 +218,7 @@ function MealPage({ copy }: { copy: Copy }) {
   useEffect(() => { if (!mealId) return; const load = () => getMeal(mealId).then(setMeal); load(); const timer = window.setInterval(load, 5000); return () => window.clearInterval(timer) }, [mealId])
   useEffect(() => { if (meal) getStalls().then((items) => setStall(items.find((item) => item.id === meal.stallId) ?? starterStall)) }, [meal])
   if (!meal) return <Loading copy={copy} />
-  return <section className="page-width meal-page"><div className="public-head"><div><div className="eyebrow">Pendiente / {stall.city}</div><h1>{meal.firstName ? `${copy.paymentFor} ${meal.firstName}.` : `${copy.cardWaiting}.`}</h1></div><StatusBadge status={meal.status} copy={copy} /></div><div className="meal-status-card"><div className="status-timeline"><div className="timeline-item done"><span>01</span><div><strong>{copy.mealBought}</strong><small>{shortDate(meal.boughtAt)}</small></div></div><div className={`timeline-line ${meal.status !== 'Waiting' ? 'done' : ''}`} /><div className={`timeline-item ${meal.status !== 'Waiting' ? 'done' : 'current'}`}><span>02</span><div><strong>{meal.status === 'Returned' ? copy.moneyReturned : copy.served}</strong><small>{meal.status === 'Waiting' ? `${copy.expiresPrefix} ${shortDate(meal.expiresAt)}` : shortDate(meal.servedAt)}</small></div></div></div><div className="meal-photo">{meal.photoData ? <img src={meal.photoData} alt="Plate served at the stall" /> : <><PlateArt /><span>{meal.status === 'Waiting' ? copy.plateWaiting : copy.noPhoto}</span></>}</div></div><div className="meal-meta"><div><small>{copy.stallLabel}</small><strong>{stall.name}</strong><span>{stall.address}</span></div><div><small>{copy.amountLabel}</small><strong>{money(meal.amountCents)}</strong><span>{copy.stellarTime}</span></div><div><small>{copy.seeStellar}</small><a href={meal.paymentLink ?? '#'} target="_blank" rel="noreferrer">{copy.seeStellar} ↗</a><span>{copy.publicPaymentRecord}</span></div></div><div className="meal-share"><span>{copy.shareMealPage}</span><button type="button" className="text-link" onClick={() => navigator.share?.({ title: 'Pendiente meal', url: window.location.href })}>{copy.share} ↗</button></div></section>
+  return <section className="page-width meal-page"><div className="public-head"><div><div className="eyebrow">Pendiente / {stall.city}</div><h1>{meal.firstName ? `${copy.paymentFor} ${meal.firstName}.` : `${copy.cardWaiting}.`}</h1></div><StatusBadge status={meal.status} copy={copy} /></div><div className="meal-status-card"><div className="status-timeline"><div className="timeline-item done"><span>01</span><div><strong>{copy.mealBought}</strong><small>{shortDate(meal.boughtAt)}</small></div></div><div className={`timeline-line ${meal.status !== 'Waiting' ? 'done' : ''}`} /><div className={`timeline-item ${meal.status !== 'Waiting' ? 'done' : 'current'}`}><span>02</span><div><strong>{meal.status === 'Returned' ? copy.moneyReturned : copy.served}</strong><small>{meal.status === 'Waiting' ? `${copy.expiresPrefix} ${shortDate(meal.expiresAt)}` : shortDate(meal.servedAt)}</small></div></div></div><div className="meal-photo">{meal.photoData ? <img src={meal.photoData} alt={copy.plateAlt} /> : <><PlateArt /><span>{meal.status === 'Waiting' ? copy.plateWaiting : copy.noPhoto}</span></>}</div></div><div className="meal-meta"><div><small>{copy.stallLabel}</small><strong>{stall.name}</strong><span>{stall.address}</span></div><div><small>{copy.amountLabel}</small><strong>{money(meal.amountCents)}</strong><span>{copy.stellarTime}</span></div><div><small>{copy.seeStellar}</small><a href={meal.paymentLink ?? '#'} target="_blank" rel="noreferrer">{copy.seeStellar} ↗</a><span>{copy.publicPaymentRecord}</span></div></div><div className="meal-share"><span>{copy.shareMealPage}</span><button type="button" className="text-link" onClick={() => navigator.share?.({ title: copy.shareTitle, url: window.location.href })}>{copy.share} ↗</button></div></section>
 }
 
 type ScannedCard = { mealId?: string; stallId?: string; secret?: string }
@@ -250,14 +250,14 @@ function CounterPage({ copy }: { copy: Copy }) {
       setPaidMeal(served); setCandidate(null)
     } catch (cause) { setError(errorFor(cause, copy)) }
   }
-  const choosePhoto = async (file?: File) => { if (!file) return; try { setPhotoData(await compressPhoto(file)) } catch (cause) { setError(cause instanceof Error ? cause.message : copy.errorGeneric) } }
-  if (paidMeal) return <section className="page-width counter-page success-page"><div className="success-mark">✓</div><div className="eyebrow">{stall.name}</div><h1>{copy.paid} {money(paidMeal.amountCents)}</h1><p className="hero-lead">{paidMeal.firstName ? `Meal for ${paidMeal.firstName}.` : 'The meal was served.'} The buyer can now see the plate.</p>{paidMeal.photoData && <img className="success-photo" src={paidMeal.photoData} alt="Plate served" />}<Link className="button button-primary button-wide" to={`/counter/${stall.id}`} onClick={() => { setPaidMeal(null); setCode(''); setScanned({}); setPhotoData(undefined) }}>{copy.scanAgain}</Link><Link className="text-link centered-link" to={`/meal/${paidMeal.id}`}>{copy.openMealPage} ↗</Link></section>
+  const choosePhoto = async (file?: File) => { if (!file) return; try { setPhotoData(await compressPhoto(file, copy)) } catch (cause) { setError(cause instanceof Error ? cause.message : copy.errorGeneric) } }
+  if (paidMeal) return <section className="page-width counter-page success-page"><div className="success-mark">✓</div><div className="eyebrow">{stall.name}</div><h1>{copy.paid} {money(paidMeal.amountCents)}</h1><p className="hero-lead">{paidMeal.firstName ? `${copy.mealFor} ${paidMeal.firstName}.` : copy.mealWasServed} {copy.buyerCanSee}</p>{paidMeal.photoData && <img className="success-photo" src={paidMeal.photoData} alt={copy.plateAlt} />}<Link className="button button-primary button-wide" to={`/counter/${stall.id}`} onClick={() => { setPaidMeal(null); setCode(''); setScanned({}); setPhotoData(undefined) }}>{copy.scanAgain}</Link><Link className="text-link centered-link" to={`/meal/${paidMeal.id}`}>{copy.openMealPage} ↗</Link></section>
   return <section className="page-width counter-page"><div className="counter-heading"><div><div className="eyebrow">{stall.name}</div><h1>{copy.counterTitle}</h1><p className="hero-lead">{copy.counterLead}</p></div><div className="counter-pill"><span className="waiting-dot" /> {stall.waitingCount} {copy.mealsWaiting}</div></div><div className="scan-panel"><button className="scan-button" type="button" onClick={() => { setCameraOpen(true); setError('') }}><span className="scan-icon">⌁</span><strong>{copy.scanCard}</strong><small>{copy.cameraUse}</small></button>{cameraOpen && <CameraCapture copy={copy} onClose={() => setCameraOpen(false)} onPayload={(payload) => { setCameraOpen(false); runCheck(payload) }} />}<div className="or-rule"><span>{copy.cameraOr}</span></div><form className="backup-form" onSubmit={checkTypedCode}><label>{copy.typeCode}<input value={code} onChange={(event) => setCode(event.target.value.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase())} placeholder="AB12CD34" inputMode="text" autoCapitalize="characters" /></label><button className="button button-dark button-wide" type="submit">{copy.checkCard} →</button></form><p className="camera-note">{copy.cameraNote}</p>{error && <div className="counter-error">{error}</div>}</div>{candidate && <div className="valid-card"><div className="valid-head"><span className="valid-check">✓</span><div><strong>{copy.valid}</strong><span>{copy.mealFor} {candidate.firstName || copy.someone}</span></div><StatusBadge status={candidate.status} copy={copy} /></div><div className="valid-details"><span>{stall.name}</span><strong>{money(candidate.amountCents)}</strong></div><label className="photo-upload">{copy.takePhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => choosePhoto(event.target.files?.[0])} /><span>{photoData ? copy.photoReady : copy.choosePhoto}</span></label><button className="button button-primary button-wide" type="button" onClick={serve}>{copy.serveAndPay} →</button></div>}</section>
 }
 
 function CameraCapture({ copy, onClose, onPayload }: { copy: Copy; onClose: () => void; onPayload: (payload: ScannedCard) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [message, setMessage] = useState('Point the camera at the meal card.')
+  const [message, setMessage] = useState(copy.cameraPoint)
   useEffect(() => {
     let stream: MediaStream | undefined
     let timer: number | undefined
@@ -272,12 +272,12 @@ function CameraCapture({ copy, onClose, onPayload }: { copy: Copy; onClose: () =
         const scanner = new detector({ formats: ['qr_code'] })
         const tick = async () => { if (cancelled || !videoRef.current) return; try { const results = await scanner.detect(videoRef.current); const raw = results[0]?.rawValue; if (raw) { const parsed = JSON.parse(raw) as ScannedCard & { v?: number }; onPayload(parsed) } } catch { /* keep looking */ } timer = window.setTimeout(tick, 350) }
         tick()
-      } catch { setMessage('Camera is not ready. Type the 8-character code below.') }
+      } catch { setMessage(copy.cameraNotReady) }
     }
     start()
     return () => { cancelled = true; if (timer) window.clearTimeout(timer); stream?.getTracks().forEach((track) => track.stop()) }
-  }, [copy.cameraNote, onPayload])
-  return <div className="camera-box"><div className="camera-top"><strong>{copy.scanCard}</strong><button type="button" onClick={onClose} aria-label="Close camera">×</button></div><video ref={videoRef} muted playsInline /><p>{message}</p></div>
+  }, [copy.cameraNotReady, copy.cameraNote, copy.cameraPoint, onPayload])
+  return <div className="camera-box"><div className="camera-top"><strong>{copy.scanCard}</strong><button type="button" onClick={onClose} aria-label={copy.closeCamera}>×</button></div><video ref={videoRef} muted playsInline /><p>{message}</p></div>
 }
 
 function ProofPage({ copy }: { copy: Copy }) {
@@ -285,8 +285,8 @@ function ProofPage({ copy }: { copy: Copy }) {
   const [stalls, setStalls] = useState<Stall[]>([starterStall])
   useEffect(() => { getProof().then(setMeals); getStalls().then(setStalls) }, [])
   const counts = useMemo(() => ({ bought: meals.length, served: meals.filter((meal) => meal.status === 'Served').length, returned: meals.filter((meal) => meal.status === 'Returned').length }), [meals])
-  const stallName = (id: string) => stalls.find((stall) => stall.id === id)?.name ?? 'Pendiente stall'
-  return <section className="page-width proof-page"><div className="proof-head"><div><div className="eyebrow">{copy.proofPublic}</div><h1>{copy.proofTitle}</h1><p className="hero-lead">{copy.proofLead}</p></div><div className="proof-live"><span className="live-dot" /> {copy.livePractice}</div></div><div className="proof-stats"><div><strong>{counts.bought}</strong><span>{copy.totalBought}</span></div><div><strong>{counts.served}</strong><span>{copy.totalServed}</span></div><div><strong>{counts.returned}</strong><span>{copy.totalReturned}</span></div></div>{meals.length > 0 && <div className="photo-grid">{meals.filter((meal) => meal.photoData).map((meal) => <div key={meal.id}><img src={meal.photoData} alt="Plate served" /><span>{stallName(meal.stallId)}</span></div>)}</div>}<div className="proof-table-wrap"><table><thead><tr><th>{copy.tableStall}</th><th>{copy.tableAmount}</th><th>{copy.status}</th><th>{copy.time}</th><th aria-label={copy.tableOpen} /></tr></thead><tbody>{meals.map((meal) => <tr key={meal.id}><td>{stallName(meal.stallId)}</td><td>{money(meal.amountCents)}</td><td><StatusBadge status={meal.status} copy={copy} /></td><td>{shortDate(meal.servedAt ?? meal.boughtAt)}</td><td><Link className="table-link" to={`/meal/${meal.id}`}>{copy.tableOpen} ↗</Link></td></tr>)}</tbody></table>{meals.length === 0 && <div className="empty-table">{copy.emptyPractice}</div>}</div></section>
+  const stallName = (id: string) => stalls.find((stall) => stall.id === id)?.name ?? copy.stallFallback
+  return <section className="page-width proof-page"><div className="proof-head"><div><div className="eyebrow">{copy.proofPublic}</div><h1>{copy.proofTitle}</h1><p className="hero-lead">{copy.proofLead}</p></div><div className="proof-live"><span className="live-dot" /> {copy.livePractice}</div></div><div className="proof-stats"><div><strong>{counts.bought}</strong><span>{copy.totalBought}</span></div><div><strong>{counts.served}</strong><span>{copy.totalServed}</span></div><div><strong>{counts.returned}</strong><span>{copy.totalReturned}</span></div></div>{meals.length > 0 && <div className="photo-grid">{meals.filter((meal) => meal.photoData).map((meal) => <div key={meal.id}><img src={meal.photoData} alt={copy.plateAlt} /><span>{stallName(meal.stallId)}</span></div>)}</div>}<div className="proof-table-wrap"><table><thead><tr><th>{copy.tableStall}</th><th>{copy.tableAmount}</th><th>{copy.status}</th><th>{copy.time}</th><th aria-label={copy.tableOpen} /></tr></thead><tbody>{meals.map((meal) => <tr key={meal.id}><td>{stallName(meal.stallId)}</td><td>{money(meal.amountCents)}</td><td><StatusBadge status={meal.status} copy={copy} /></td><td>{shortDate(meal.servedAt ?? meal.boughtAt)}</td><td><Link className="table-link" to={`/meal/${meal.id}`}>{copy.tableOpen} ↗</Link></td></tr>)}</tbody></table>{meals.length === 0 && <div className="empty-table">{copy.emptyPractice}</div>}</div></section>
 }
 
 function ChalkboardPage({ copy }: { copy: Copy }) {
@@ -313,7 +313,7 @@ function AdminPage({ copy }: { copy: Copy }) {
       setSaved(true); setName(''); setCity(''); setAddress(''); setPayout(''); setAdminKey(''); setPhoto('')
     } catch { setError(copy.errorGeneric) }
   }
-  return <section className="page-width admin-page"><div className="eyebrow">Pendiente</div><h1>{copy.adminTitle}</h1><p className="hero-lead">{copy.adminLead}</p><form className="admin-form" onSubmit={submit}><label>{copy.adminName}<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Iya Basira’s Buka" /></label><label>{copy.adminCity}<input required value={city} onChange={(event) => setCity(event.target.value)} placeholder="Lagos, Nigeria" /></label><label>{copy.adminAddress}<input required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="12 Market Street, Lagos" /></label><label>{copy.adminPhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => { const file = event.target.files?.[0]; if (file) compressPhoto(file).then(setPhoto).catch((cause) => setError(cause instanceof Error ? cause.message : copy.errorGeneric)) }} />{photo && <span className="admin-photo-ready">{copy.photoReady}</span>}</label><label>{copy.adminPrice}<input required min="100" type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>{copy.adminPayout}<input required value={payout} onChange={(event) => setPayout(event.target.value)} placeholder="Stall payment account" /></label><label>{copy.adminKey}<input required type="password" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} /></label><button className="button button-primary button-wide" type="submit">{copy.adminSave} →</button>{saved && <div className="admin-success">✓ {copy.adminSaved}</div>}{error && <div className="counter-error">{error}</div>}</form></section>
+  return <section className="page-width admin-page"><div className="eyebrow">Pendiente</div><h1>{copy.adminTitle}</h1><p className="hero-lead">{copy.adminLead}</p><form className="admin-form" onSubmit={submit}><label>{copy.adminName}<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Iya Basira’s Buka" /></label><label>{copy.adminCity}<input required value={city} onChange={(event) => setCity(event.target.value)} placeholder="Lagos, Nigeria" /></label><label>{copy.adminAddress}<input required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="12 Market Street, Lagos" /></label><label>{copy.adminPhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => { const file = event.target.files?.[0]; if (file) compressPhoto(file, copy).then(setPhoto).catch((cause) => setError(cause instanceof Error ? cause.message : copy.errorGeneric)) }} />{photo && <span className="admin-photo-ready">{copy.photoReady}</span>}</label><label>{copy.adminPrice}<input required min="100" type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>{copy.adminPayout}<input required value={payout} onChange={(event) => setPayout(event.target.value)} placeholder="Stall payment account" /></label><label>{copy.adminKey}<input required type="password" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} placeholder={copy.adminKey} /></label><button className="button button-primary button-wide" type="submit">{copy.adminSave} →</button>{saved && <div className="admin-success">✓ {copy.adminSaved}</div>}{error && <div className="counter-error">{error}</div>}</form></section>
 }
 
 function Loading({ copy }: { copy: Copy }) { return <section className="page-width loading-page"><div className="loading-spinner" /><span>{copy.loading}</span></section> }
@@ -328,23 +328,23 @@ function errorFor(error: unknown, copy: Copy) {
   return copy.errorGeneric
 }
 
-async function compressPhoto(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('Please choose a photo of the plate.')
-  if (file.size > 20 * 1024 * 1024) throw new Error('That photo is too large. Choose one under 20 MB.')
+async function compressPhoto(file: File, copy: Copy): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error(copy.photoTypeError)
+  if (file.size > 20 * 1024 * 1024) throw new Error(copy.photoSizeError)
   const image = new Image()
   const source = URL.createObjectURL(file)
   try {
-    await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('We could not read that photo.')) ; image.src = source })
+    await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error(copy.photoReadError)) ; image.src = source })
     const max = 1280
     const scale = Math.min(1, max / Math.max(image.width, image.height))
     const canvas = document.createElement('canvas'); canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale)
-    const context = canvas.getContext('2d'); if (!context) throw new Error('We could not prepare that photo.')
+    const context = canvas.getContext('2d'); if (!context) throw new Error(copy.photoPrepareError)
     context.drawImage(image, 0, 0, canvas.width, canvas.height)
     let quality = 0.78
     let blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
     while (blob && blob.size > 300 * 1024 && quality > 0.35) { quality -= 0.08; blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality)) }
-    if (!blob || blob.size > 300 * 1024) throw new Error('That photo is still too large. Choose a smaller plate photo.')
-    return await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('We could not prepare that photo.')); reader.readAsDataURL(blob) })
+    if (!blob || blob.size > 300 * 1024) throw new Error(copy.photoStillLarge)
+    return await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error(copy.photoPrepareError)); reader.readAsDataURL(blob) })
   } finally { URL.revokeObjectURL(source) }
 }
 

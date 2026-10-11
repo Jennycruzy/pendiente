@@ -1,6 +1,6 @@
 export function PlateArt({ compact = false }: { compact?: boolean }) {
   return (
-    <div className={`plate-art ${compact ? 'compact' : ''}`} role="img" aria-label="A warm plate of food">
+    <div className={`plate-art ${compact ? 'compact' : ''}`} aria-hidden="true">
       <div className="plate-shadow" />
       <div className="plate">
         <div className="rice rice-one" />
