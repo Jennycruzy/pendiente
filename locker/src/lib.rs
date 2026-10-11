@@ -1,12 +1,9 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
-};
+use soroban_sdk::{contract, contractevent, contractimpl, contracttype, Address, BytesN, Env};
 
 pub const USDC_SCALE: i128 = 10_000_000;
 pub const MIN_PRICE: i128 = USDC_SCALE;
-const DAY_SECONDS: u64 = 86_400;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[contracttype]
@@ -54,14 +51,35 @@ pub enum DataKey {
     Meal(u64),
 }
 
+#[contractevent(topics = ["bought"])]
+pub struct BoughtEvent {
+    #[topic]
+    pub meal_id: u64,
+}
+
+#[contractevent(topics = ["served"])]
+pub struct ServedEvent {
+    #[topic]
+    pub meal_id: u64,
+}
+
+#[contractevent(topics = ["returned"])]
+pub struct ReturnedEvent {
+    #[topic]
+    pub meal_id: u64,
+}
+
 #[contract]
 pub struct PendienteLocker;
 
 #[contractimpl]
 impl PendienteLocker {
-    pub fn init(env: Env, admin: Address, usdc: Address, refund_days: u32) {
+    pub fn init(env: Env, admin: Address, usdc: Address, refund_seconds: u64) {
         if env.storage().instance().has(&DataKey::Settings) {
             panic!("already initialized")
+        }
+        if refund_seconds == 0 {
+            panic!("refund time must be positive")
         }
         admin.require_auth();
         env.storage().instance().set(
@@ -70,7 +88,7 @@ impl PendienteLocker {
                 admin,
                 usdc,
                 next_meal: 1,
-                refund_seconds: u64::from(refund_days) * DAY_SECONDS,
+                refund_seconds,
             },
         );
     }
@@ -80,7 +98,11 @@ impl PendienteLocker {
         Self::check_price(price);
         env.storage().persistent().set(
             &DataKey::Stall(stall_id),
-            &Stall { payout, price, active },
+            &Stall {
+                payout,
+                price,
+                active,
+            },
         );
     }
 
@@ -92,7 +114,11 @@ impl PendienteLocker {
         }
         env.storage().persistent().set(
             &DataKey::Stall(stall_id),
-            &Stall { payout, price, active },
+            &Stall {
+                payout,
+                price,
+                active,
+            },
         );
     }
 
@@ -126,9 +152,11 @@ impl PendienteLocker {
             &env.current_contract_address(),
             &stall.price,
         );
-        env.storage().persistent().set(&DataKey::Meal(meal_id), &meal);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Meal(meal_id), &meal);
         env.storage().instance().set(&DataKey::Settings, &settings);
-        env.events().publish((symbol_short!("bought"),), meal_id);
+        BoughtEvent { meal_id }.publish(&env);
         meal_id
     }
 
@@ -137,21 +165,23 @@ impl PendienteLocker {
         if meal.status != MealStatus::Waiting {
             panic!("meal already closed")
         }
-        if env.ledger().timestamp() > meal.expires_at {
+        if env.ledger().timestamp() >= meal.expires_at {
             panic!("meal expired")
         }
         if env.crypto().sha256(&secret.into()).to_bytes() != meal.fingerprint {
             panic!("wrong secret")
         }
         meal.status = MealStatus::Served;
-        env.storage().persistent().set(&DataKey::Meal(meal_id), &meal);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Meal(meal_id), &meal);
         let settings = Self::settings(&env);
         soroban_sdk::token::Client::new(&env, &settings.usdc).transfer(
             &env.current_contract_address(),
             &meal.payout,
             &meal.amount,
         );
-        env.events().publish((symbol_short!("served"),), meal_id);
+        ServedEvent { meal_id }.publish(&env);
     }
 
     pub fn refund(env: Env, meal_id: u64) {
@@ -163,14 +193,16 @@ impl PendienteLocker {
             panic!("meal not expired")
         }
         meal.status = MealStatus::Returned;
-        env.storage().persistent().set(&DataKey::Meal(meal_id), &meal);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Meal(meal_id), &meal);
         let settings = Self::settings(&env);
         soroban_sdk::token::Client::new(&env, &settings.usdc).transfer(
             &env.current_contract_address(),
             &meal.buyer,
             &meal.amount,
         );
-        env.events().publish((symbol_short!("returned"),), meal_id);
+        ReturnedEvent { meal_id }.publish(&env);
     }
 
     pub fn get_meal(env: Env, meal_id: u64) -> Option<Meal> {
@@ -183,7 +215,10 @@ impl PendienteLocker {
 
     pub fn keep_alive(env: Env, meal_id: u64) {
         if env.storage().persistent().has(&DataKey::Meal(meal_id)) {
-            env.storage().persistent().extend_ttl(&DataKey::Meal(meal_id), 1, 518_400);
+            env.storage()
+                .persistent()
+                .extend_ttl(&DataKey::Meal(meal_id), 1, 518_400);
+            env.storage().instance().extend_ttl(1, 518_400);
         }
     }
 
@@ -215,11 +250,16 @@ impl PendienteLocker {
 
 #[cfg(test)]
 mod tests {
-    use super::{MealStatus, PendienteLocker, PendienteLockerClient, DAY_SECONDS, MIN_PRICE, USDC_SCALE};
-    use soroban_sdk::{testutils::{Address as _, Ledger}, token::{Client as TokenClient, StellarAssetClient}, Address, BytesN, Env};
+    use super::{MealStatus, PendienteLocker, PendienteLockerClient, MIN_PRICE, USDC_SCALE};
+    use soroban_sdk::{
+        testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+        token::{Client as TokenClient, StellarAssetClient},
+        Address, BytesN, Env, IntoVal,
+    };
 
     const STALL_ID: u32 = 7;
     const MEAL_PRICE: i128 = 30_000_000;
+    const DAY_SECONDS: u64 = 86_400;
 
     struct Fixture {
         env: Env,
@@ -237,14 +277,23 @@ mod tests {
         let buyer = Address::generate(&env);
         let first_payout = Address::generate(&env);
         let second_payout = Address::generate(&env);
-        let usdc = env.register_stellar_asset_contract_v2(admin.clone()).address();
+        let usdc = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
         let locker = env.register(PendienteLocker, ());
         let client = PendienteLockerClient::new(&env, &locker);
-        client.init(&admin, &usdc, &21);
+        client.init(&admin, &usdc, &(21 * DAY_SECONDS));
         client.add_stall(&STALL_ID, &first_payout, &MEAL_PRICE, &true);
         StellarAssetClient::new(&env, &usdc).mint(&buyer, &(MEAL_PRICE * 3));
         env.ledger().set_timestamp(1);
-        Fixture { env, locker, usdc, buyer, first_payout, second_payout }
+        Fixture {
+            env,
+            locker,
+            usdc,
+            buyer,
+            first_payout,
+            second_payout,
+        }
     }
 
     fn secret(env: &Env, value: u8) -> BytesN<32> {
@@ -262,6 +311,64 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn init_twice_is_refused() {
+        let f = fixture();
+        let client = PendienteLockerClient::new(&f.env, &f.locker);
+        client.init(&Address::generate(&f.env), &f.usdc, &(21 * DAY_SECONDS));
+    }
+
+    #[test]
+    #[should_panic]
+    fn zero_refund_time_is_refused() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let usdc = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
+        let locker = env.register(PendienteLocker, ());
+        PendienteLockerClient::new(&env, &locker).init(&admin, &usdc, &0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn non_admin_cannot_add_stall() {
+        let env = Env::default();
+        let admin = Address::generate(&env);
+        let stranger = Address::generate(&env);
+        let payout = Address::generate(&env);
+        let usdc = env
+            .register_stellar_asset_contract_v2(admin.clone())
+            .address();
+        let locker = env.register(PendienteLocker, ());
+        let client = PendienteLockerClient::new(&env, &locker);
+        client
+            .mock_auths(&[MockAuth {
+                address: &admin,
+                invoke: &MockAuthInvoke {
+                    contract: &locker,
+                    fn_name: "init",
+                    args: (&admin, &usdc, 21 * DAY_SECONDS).into_val(&env),
+                    sub_invokes: &[],
+                },
+            }])
+            .init(&admin, &usdc, &(21 * DAY_SECONDS));
+
+        client
+            .mock_auths(&[MockAuth {
+                address: &stranger,
+                invoke: &MockAuthInvoke {
+                    contract: &locker,
+                    fn_name: "add_stall",
+                    args: (STALL_ID, &payout, MEAL_PRICE, true).into_val(&env),
+                    sub_invokes: &[],
+                },
+            }])
+            .add_stall(&STALL_ID, &payout, &MEAL_PRICE, &true);
+    }
+
+    #[test]
     fn buy_then_serve_pays_exact_price() {
         let f = fixture();
         let client = PendienteLockerClient::new(&f.env, &f.locker);
@@ -273,7 +380,10 @@ mod tests {
 
         assert_eq!(token.balance(&f.first_payout), MEAL_PRICE);
         assert_eq!(token.balance(&f.locker), 0);
-        assert_eq!(client.get_meal(&meal_id).unwrap().status, MealStatus::Served);
+        assert_eq!(
+            client.get_meal(&meal_id).unwrap().status,
+            MealStatus::Served
+        );
     }
 
     #[test]
@@ -315,7 +425,10 @@ mod tests {
 
         assert_eq!(token.balance(&f.buyer), MEAL_PRICE * 3);
         assert_eq!(token.balance(&f.locker), 0);
-        assert_eq!(client.get_meal(&meal_id).unwrap().status, MealStatus::Returned);
+        assert_eq!(
+            client.get_meal(&meal_id).unwrap().status,
+            MealStatus::Returned
+        );
     }
 
     #[test]
@@ -325,6 +438,16 @@ mod tests {
         let client = PendienteLockerClient::new(&f.env, &f.locker);
         let meal_id = client.buy(&f.buyer, &STALL_ID, &fingerprint(&f.env, 1));
         f.env.ledger().set_timestamp(1 + 21 * DAY_SECONDS + 1);
+        client.serve(&meal_id, &secret(&f.env, 1));
+    }
+
+    #[test]
+    #[should_panic]
+    fn serving_at_expiry_is_refused() {
+        let f = fixture();
+        let client = PendienteLockerClient::new(&f.env, &f.locker);
+        let meal_id = client.buy(&f.buyer, &STALL_ID, &fingerprint(&f.env, 1));
+        f.env.ledger().set_timestamp(1 + 21 * DAY_SECONDS);
         client.serve(&meal_id, &secret(&f.env, 1));
     }
 
@@ -379,6 +502,9 @@ mod tests {
         assert_eq!(token.balance(&f.locker), MEAL_PRICE * 2);
         client.serve(&first, &secret(&f.env, 1));
         assert_eq!(token.balance(&f.locker), MEAL_PRICE);
-        assert_eq!(client.get_meal(&second).unwrap().status, MealStatus::Waiting);
+        assert_eq!(
+            client.get_meal(&second).unwrap().status,
+            MealStatus::Waiting
+        );
     }
 }
