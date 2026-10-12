@@ -85,6 +85,33 @@ const publicStall = (stall) => ({
 
 function fail(res, status, error) { return res.status(status).json({ error }) }
 
+async function sendServedEmail(meal) {
+  const token = process.env.POSTMARK_SERVER_TOKEN
+  const sender = process.env.POSTMARK_FROM_EMAIL
+  if (!token || !sender || !meal.email) return
+  const attachments = []
+  if (meal.photo_data?.startsWith('data:image/')) {
+    const match = meal.photo_data.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,(.+)$/i)
+    if (match) attachments.push({ Name: 'plate.jpg', Content: match[2], ContentType: match[1], ContentID: 'plate' })
+  }
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]))
+  const recipient = escapeHtml(meal.first_name || 'someone back home')
+  const mealUrl = `${process.env.PUBLIC_SITE_URL || 'https://pendiente.54-154-121-30.sslip.io'}/meal/${encodeURIComponent(meal.id)}`
+  await fetch('https://api.postmarkapp.com/email', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Postmark-Server-Token': token },
+    body: JSON.stringify({
+      From: sender,
+      To: meal.email,
+      Subject: 'Your meal was served',
+      TextBody: `Your meal for ${meal.first_name || 'someone back home'} was served at the stall. See the plate: ${mealUrl}`,
+      HtmlBody: `<p>Your meal for ${recipient} was served at the stall.</p><p><a href="${mealUrl}">See the plate</a></p>`,
+      MessageStream: 'outbound',
+      Attachments: attachments,
+    }),
+  })
+}
+
 function photoIsSafe(photoData) {
   if (!photoData) return true
   if (typeof photoData !== 'string' || !/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(photoData)) return false
@@ -167,7 +194,9 @@ app.post('/api/meals/:id/serve', async (req, res) => {
   const servedAt = new Date().toISOString()
   const changed = db.prepare("UPDATE meals SET status = 'Served', served_at = ?, photo_data = ? WHERE id = ? AND status = 'Waiting'").run(servedAt, photoData || null, req.params.id)
   if (changed.changes !== 1) return fail(res, 409, 'already_used')
-  res.json(publicMeal(db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id)))
+  const servedMeal = db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id)
+  void sendServedEmail(servedMeal).catch(() => {})
+  res.json(publicMeal(servedMeal))
 })
 
 app.post('/api/meals/:id/refund', async (req, res) => {
