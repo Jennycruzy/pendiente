@@ -5,6 +5,7 @@ const runFile = promisify(execFile)
 const enabled = process.env.STELLAR_ENABLED === 'true'
 const contractId = process.env.STELLAR_CONTRACT_ID || ''
 const source = process.env.STELLAR_SOURCE_ACCOUNT || ''
+const feeSource = process.env.STELLAR_FEE_SOURCE_ACCOUNT || source
 const network = process.env.STELLAR_NETWORK || 'testnet'
 const cli = process.env.STELLAR_CLI_PATH || 'stellar'
 
@@ -14,8 +15,8 @@ function ready() {
   return true
 }
 
-async function invoke(command) {
-  const args = ['contract', 'invoke', '--id', contractId, '--source', source, '--network', network, '--', ...command]
+async function invoke(command, sourceAccount = feeSource) {
+  const args = ['contract', 'invoke', '--id', contractId, '--source', sourceAccount, '--network', network, '--', ...command]
   const { stdout, stderr } = await runFile(cli, args, { timeout: 60_000, maxBuffer: 2 * 1024 * 1024 })
   const paymentLinks = stderr.match(/https:\/\/stellar\.expert\/explorer\/[^\s]+\/tx\/[0-9a-f]+/g) ?? []
   return { value: stdout.trim(), paymentLink: paymentLinks.at(-1) }
@@ -27,7 +28,7 @@ export function stellarIsEnabled() {
 
 export async function buyOnStellar({ stallId, fingerprint }) {
   if (!ready()) return null
-  const result = await invoke(['buy', '--buyer', source, '--stall_id', String(stallId), '--fingerprint', fingerprint])
+  const result = await invoke(['buy', '--buyer', source, '--stall_id', String(stallId), '--fingerprint', fingerprint], source)
   const mealId = Number(result.value.split(/\s+/).at(-1))
   if (!Number.isSafeInteger(mealId)) throw new Error('stellar_buy_failed')
   return { mealId, paymentLink: result.paymentLink }
