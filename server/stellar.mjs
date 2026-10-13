@@ -178,8 +178,14 @@ export async function nextMealId() {
   return Number(result)
 }
 let totalsCache
+let totalsRefresh
+// Serves the last chain reading at once and refreshes it in the background once it is 10 seconds old.
 export async function mealTotals() {
-  if (totalsCache && Date.now() < totalsCache.until) return totalsCache.value
+  if (totalsCache && Date.now() >= totalsCache.until && !totalsRefresh) totalsRefresh = readMealTotals().catch((error) => console.error('Totals refresh failed', error.message)).finally(() => { totalsRefresh = undefined })
+  if (totalsCache) return totalsCache.value
+  return totalsRefresh || (totalsRefresh = readMealTotals().finally(() => { totalsRefresh = undefined }))
+}
+async function readMealTotals() {
   const next = await nextMealId()
   const value = { bought: next - 1, served: 0, returned: 0, waiting: 0, paidCents: 0, returnedCents: 0 }
   for (let start = 1; start < next; start += 10) {
