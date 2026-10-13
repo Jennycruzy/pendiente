@@ -17,6 +17,7 @@ export interface Meal {
   id: string
   stallId: string
   firstName?: string
+  firstNameInitial?: string
   message?: string
   email?: string
   amountCents: number

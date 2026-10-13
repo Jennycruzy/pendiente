@@ -28,7 +28,6 @@ export function CardPreview({ meal, stall, qrDataUrl, backupCode, copy }: CardPr
           <div className="card-detail-label">{copy.showAt}</div>
           <strong>{stall.name}</strong>
           <span>{stall.address}</span>
-          {meal.firstName && <span className="for-name">{copy.cardFor} {meal.firstName}</span>}
         </div>
       </div>
       <div className="card-footer-grid">
