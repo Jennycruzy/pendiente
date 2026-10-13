@@ -4,7 +4,7 @@
 
 ![A Pendiente meal card](docs/card-scan.png)
 
-[Open Pendiente](https://pendiente.54-154-121-30.sslip.io) · [Try it without a wallet](https://pendiente.54-154-121-30.sslip.io/?practice=1) · [Every served meal](https://pendiente.54-154-121-30.sslip.io/proof)
+[Open Pendiente](https://pendiente.isobars.xyz) · [Try it without a wallet](https://pendiente.isobars.xyz/?practice=1) · [Every served meal](https://pendiente.isobars.xyz/proof)
 
 When you send money home for food, you never see the plate. Pendiente sells the meal itself. Your money waits for one stall and one plate, and it comes back to you if the meal is never eaten.
 

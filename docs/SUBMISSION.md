@@ -29,16 +29,16 @@ Cada tarjeta sirve una vez, en un solo puesto. Si nadie la usa, el dinero vuelve
 
 ## Try it in 60 seconds
 
-1. Open [Pendiente](https://pendiente.54-154-121-30.sslip.io) and connect a testnet wallet such as Freighter.
+1. Open [Pendiente](https://pendiente.isobars.xyz) and connect a testnet wallet such as Freighter.
 2. Tap **Get free play dollars**, then approve a $3.00 meal and download the card.
-3. On a second phone, tap **Scan card** and scan it. The stall is paid and the meal page shows Served.
+3. On a second phone, tap **Scan card**, pick the stall named on the card, and scan it. The stall is paid and the meal page shows Served.
 4. Scan the same card again. It is refused.
 
-No wallet? [Practice mode](https://pendiente.54-154-121-30.sslip.io/?practice=1) runs the whole flow on one device with no money.
+No wallet? [Practice mode](https://pendiente.isobars.xyz/?practice=1) runs the whole flow on one device with no money.
 
 ## Links
 
-- Live site: https://pendiente.54-154-121-30.sslip.io
-- Every served meal: https://pendiente.54-154-121-30.sslip.io/proof
+- Live site: https://pendiente.isobars.xyz
+- Every served meal: https://pendiente.isobars.xyz/proof
 - Testnet locker: `CCEWVBHEO7K6GH2C2WVB6RBGPWASFJGGLC67XBYA3VVE6KF6CCLAMNWQ`
 - Testnet records with every payment link: [VERIFIED.md](VERIFIED.md)

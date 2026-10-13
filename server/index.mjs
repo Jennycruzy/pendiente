@@ -229,7 +229,7 @@ function createApp({ db: suppliedDb, chain = realChain, photoDirectory = photosP
     const changed = db.prepare("UPDATE meals SET status='Served',served_at=COALESCE(?,served_at),photo_path=?,serve_tx=?,serve_complete=1 WHERE id=? AND status IN ('Waiting','Served') AND serve_complete=0").run(servedAt, path || null, confirmed?.link || null, result.meal.id)
     if (changed.changes !== 1) return fail(res, 409, 'already_used')
     if (result.meal.email && process.env.POSTMARK_SERVER_TOKEN && process.env.POSTMARK_FROM_EMAIL) {
-      const mealUrl = `${process.env.PUBLIC_SITE_URL || 'https://pendiente.54-154-121-30.sslip.io'}/meal/${result.meal.id}`
+      const mealUrl = `${process.env.PUBLIC_SITE_URL || 'https://pendiente.isobars.xyz'}/meal/${result.meal.id}`
       void fetch('https://api.postmarkapp.com/email', {
         method: 'POST', headers: { 'content-type': 'application/json', 'X-Postmark-Server-Token': process.env.POSTMARK_SERVER_TOKEN },
         body: JSON.stringify({ From: process.env.POSTMARK_FROM_EMAIL, To: result.meal.email, Subject: 'Your meal was served', TextBody: `Your meal was served. See the plate: ${mealUrl}`, MessageStream: 'outbound' }),

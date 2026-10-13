@@ -1,7 +1,17 @@
 server {
+    if ($host = pendiente.isobars.xyz) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = pendiente.54-154-121-30.sslip.io) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
     listen 80;
     listen [::]:80;
-    server_name pendiente.54-154-121-30.sslip.io;
+    server_name pendiente.isobars.xyz pendiente.54-154-121-30.sslip.io;
 
     location /.well-known/acme-challenge/ {
         root /var/www/pendiente;
@@ -10,15 +20,18 @@ server {
     location / {
         return 301 https://$host$request_uri;
     }
+
+
+
+
 }
 
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    server_name pendiente.54-154-121-30.sslip.io;
-
-    ssl_certificate /etc/letsencrypt/live/pendiente.54-154-121-30.sslip.io/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/pendiente.54-154-121-30.sslip.io/privkey.pem;
+    server_name pendiente.isobars.xyz pendiente.54-154-121-30.sslip.io;
+    ssl_certificate /etc/letsencrypt/live/pendiente.54-154-121-30.sslip.io/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/pendiente.54-154-121-30.sslip.io/privkey.pem; # managed by Certbot
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
@@ -42,4 +55,6 @@ server {
     location / {
         try_files $uri $uri/ /index.html;
     }
+
+
 }

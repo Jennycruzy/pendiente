@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { createHash, randomBytes } from 'node:crypto'
 import { Keypair, Networks, TransactionBuilder, rpc } from '@stellar/stellar-sdk'
 
-const site = process.env.E2E_SITE || 'https://pendiente.54-154-121-30.sslip.io'
+const site = process.env.E2E_SITE || 'https://pendiente.isobars.xyz'
 const rpcServer = new rpc.Server('https://soroban-testnet.stellar.org', { timeout: 30_000 })
 const buyer = Keypair.random() // Throwaway testnet key stays in memory.
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex')
