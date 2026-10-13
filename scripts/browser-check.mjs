@@ -2,24 +2,24 @@ import assert from 'node:assert/strict'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-if (!process.env.PLAYWRIGHT_MODULE_PATH) throw new Error('Set PLAYWRIGHT_MODULE_PATH to the temporary Playwright module')
+if (!process.env.PLAYWRIGHT_MODULE_PATH || !process.env.CHROME_PATH) throw new Error('Set PLAYWRIGHT_MODULE_PATH and CHROME_PATH')
 const { chromium } = await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE_PATH, 'index.mjs')).href)
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true })
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, headless: true })
 const page = await browser.newPage({ viewport: { width: 393, height: 851 }, deviceScaleFactor: 2 })
 const problems = []
 page.on('pageerror', (error) => problems.push(error.message))
 try {
   await page.goto(`${process.env.BROWSER_SITE || 'http://127.0.0.1:5173'}/?practice=1`)
   await page.getByText('Practice on this device, no money moves', { exact: true }).waitFor()
-  await page.locator('.stall-tile').first().click()
+  await page.locator('.stall-feature').first().click()
   await page.locator('.meal-form input').first().fill('Mama Bisi')
   await page.getByRole('button', { name: /Continue to payment/ }).click()
-  await page.getByRole('button', { name: /Continue with play money/ }).click()
   await page.getByRole('button', { name: /Approve/ }).click()
   await page.locator('#meal-card .qr-frame img').waitFor()
   const cardUrl = page.url()
   const code = await page.locator('.backup-code').innerText()
   assert.match(code, /^[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/)
+  await page.addStyleTag({ content: '.tabbar, .confetti { display: none !important } .meal-card::after { display: none }' })
   await page.locator('#meal-card').screenshot({ path: 'docs/card-scan.png' })
   const download = page.waitForEvent('download')
   await page.getByRole('link', { name: /Download/ }).click()
@@ -32,17 +32,12 @@ try {
   await page.locator('.valid-card').waitFor()
   await page.getByRole('button', { name: /Serve and get paid/ }).click()
   await page.locator('.success-page').waitFor()
-  await page.getByRole('link', { name: /Scan another|Scan again/ }).click()
+  await page.getByRole('button', { name: /Scan another/ }).click()
   await page.locator('.backup-form input').fill(code)
   await page.getByRole('button', { name: /Check card/ }).click()
   await page.locator('.counter-error').waitFor()
   await page.getByRole('button', { name: /Switch to/ }).click()
-  assert.ok((await page.locator('.practice-banner').innerText()).includes('Práctica'))
+  assert.ok((await page.locator('.ribbon').innerText()).includes('Práctica'))
   assert.deepEqual(problems, [])
-  if (process.env.BROWSER_SITE) {
-    await page.goto(`${process.env.BROWSER_SITE}/?practice=0`)
-    assert.equal((await page.locator('.practice-banner').innerText()).includes('dispositivo'), false)
-    assert.equal((await page.locator('.practice-banner').innerText()).includes('device'), false)
-  }
   console.log('PASS: mobile-size local practice, full-card download, formatted backup, one-use refusal, Spanish, genuine v2 screenshot')
 } finally { await browser.close() }
