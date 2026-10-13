@@ -1,16 +1,16 @@
 # Pendiente
 
-**Buy a hot meal for someone back home. The cook is paid when the plate is served.**
+**Buy a hot meal for someone back home in Nigeria. The cook is paid when the plate is served.**
 
 ![A Pendiente meal card](docs/card-scan.png)
 
 [Open Pendiente](https://pendiente.isobars.xyz) · [Try it without a wallet](https://pendiente.isobars.xyz/?practice=1) · [Every served meal](https://pendiente.isobars.xyz/proof)
 
-When you send money home for food, you never see the plate. Pendiente sells the meal itself. Your money waits for one stall and one plate, and it comes back to you if the meal is never eaten.
+When you live abroad and send money home to Nigeria for food, you never see the plate. Pendiente sells the meal itself, at a buka: one of the cheap roadside kitchens found across Nigeria. Your money waits for one stall and one plate, and it comes back to you if the meal is never eaten.
 
 ## How it works
 
-1. **Pick a stall.** Each buka sets one price per plate.
+1. **Pick a stall.** Stalls in Lagos, Enugu, Abuja and Ibadan each set one price per plate.
 2. **Pay once.** Your wallet approves the price. The money is held for that stall only.
 3. **Send the card.** Share the meal card on WhatsApp or print it.
 4. **Eat.** The stall scans the card, serves the plate and is paid on the spot. You get a photo of the plate.

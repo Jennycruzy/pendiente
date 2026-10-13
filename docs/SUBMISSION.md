@@ -1,10 +1,10 @@
 # Pendiente
 
-Buy a hot meal for someone back home. The cook is paid when the plate is served.
+Buy a hot meal for someone back home in Nigeria. The cook is paid when the plate is served.
 
 ## Description
 
-When you send money home for food, you never see the plate. Pendiente sells the meal itself.
+When you live abroad and send money home to Nigeria for food, you never see the plate. Pendiente sells the meal itself, at a buka: one of the cheap roadside kitchens found across Nigeria. Our first stalls are in Lagos, Enugu, Abuja and Ibadan.
 
 You pick a stall, approve its price once, and send a meal card on WhatsApp. The money is held on Stellar for that stall only. When your person shows the card, the stall scans it, serves the plate and is paid in seconds. You get a photo of the plate.
 
@@ -14,7 +14,7 @@ Pendiente runs on the Stellar test network today with play dollars. Seven meals 
 
 ## Descripción
 
-Compra un plato caliente para alguien en tu tierra. El puesto cobra solo cuando sirve el plato.
+Compra un plato caliente para alguien en Nigeria. El puesto cobra solo cuando sirve el plato.
 
 Eliges un puesto, apruebas el precio una vez y envías la tarjeta por WhatsApp. El dinero queda reservado en Stellar para ese puesto. Cuando tu persona muestra la tarjeta, el puesto la escanea, sirve y cobra en segundos. Tú recibes una foto del plato.
 
