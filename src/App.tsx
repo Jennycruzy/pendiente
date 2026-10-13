@@ -548,11 +548,12 @@ function CounterPage({ copy }: { copy: Copy }) {
     try {
       const served = await serveMeal(candidate.id, { stallId: stall.id, secret: scanned.secret, backupCode: scanned.secret ? undefined : code.trim().toUpperCase(), photoData })
       setPaidMeal(served); setCandidate(null)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (cause) { setError(errorFor(cause, copy)) }
     finally { setServing(false) }
   }
   const choosePhoto = async (file?: File) => { if (!file) return; try { setPhotoData(await compressPhoto(file, copy)) } catch (cause) { setError(cause instanceof Error ? cause.message : copy.errorGeneric) } }
-  const reset = () => { setPaidMeal(null); setCode(''); setScanned({}); setPhotoData(undefined) }
+  const reset = () => { setPaidMeal(null); setCode(''); setScanned({}); setPhotoData(undefined); window.scrollTo({ top: 0 }) }
   if (paidMeal) return <section className="counter-shell"><Confetti /><div className="counter-inner success-page">
     <div className="success-ring big">✓</div>
     <div className="eyebrow light">{stall.name}</div>
