@@ -6,7 +6,7 @@
 
 [Open Pendiente](https://pendiente.isobars.xyz) · [Try it without a wallet](https://pendiente.isobars.xyz/?practice=1) · [Every served meal](https://pendiente.isobars.xyz/proof)
 
-When you live abroad and send money home to Nigeria for food, you never see the plate. Pendiente sells the meal itself, at a buka: one of the cheap roadside kitchens found across Nigeria. Your money waits for one stall and one plate, and it comes back to you if the meal is never eaten.
+Millions of Nigerians abroad send money home for food, and never see the plate. Pendiente sells the meal itself, at a buka: the small roadside kitchens where most Nigerians eat lunch. Your money waits for one stall and one plate, and it comes back to you if the meal is never eaten.
 
 ## How it works
 

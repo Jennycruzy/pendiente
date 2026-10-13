@@ -4,7 +4,7 @@ Buy a hot meal for someone back home in Nigeria. The cook is paid when the plate
 
 ## Description
 
-When you live abroad and send money home to Nigeria for food, you never see the plate. Pendiente sells the meal itself, at a buka: one of the cheap roadside kitchens found across Nigeria. Our first stalls are in Lagos, Enugu, Abuja and Ibadan.
+Millions of Nigerians abroad send money home for food, and never see the plate. Pendiente sells the meal itself, at a buka: the small roadside kitchens where most Nigerians eat lunch. Our first stalls are in Lagos, Enugu, Abuja and Ibadan.
 
 You pick a stall, approve its price once, and send a meal card on WhatsApp. The money is held on Stellar for that stall only. When your person shows the card, the stall scans it, serves the plate and is paid in seconds. You get a photo of the plate.
 
