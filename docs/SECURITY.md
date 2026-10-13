@@ -1,11 +1,17 @@
 # Card safety
 
-The QR card carries a random 32-byte secret. Only its fingerprint is stored in the locker. The public meal page never contains the secret.
+A meal card is worth one plate at one stall. Treat it like cash.
 
-The backup code has 16 characters from a 32-character alphabet. That is 32^16 = 2^80, about 1.2e24 possible codes. Guessing a $3 meal is not worth the computing cost. The code is turned into a separate preimage, so either the QR card or the typed code works once.
+## What the card holds
 
-A dishonest stall can redeem only with a card preimage. It cannot redirect the money: the locker copied the payout account when the meal was bought. A card holder can redeem without food being handed over; the chain cannot verify a physical plate. Anyone can call return after expiry.
+The QR code carries a random 32-byte secret. The locker stores only a fingerprint of it (its SHA-256), and the public meal page never shows the secret.
 
-The server stores fingerprints, names and optional messages. It receives the preimage during serving but must never store or log it. It cannot redirect funds. It can delay serve and return requests, so the public chain record remains the final check.
+The backup code has 16 characters from a 32-character alphabet: 32^16 = 2^80, about 1.2 × 10^24 codes. Guessing one to steal a $3 meal costs far more than the meal. The code maps to its own fingerprint, so either the QR or the typed code can serve the meal, once.
 
-The card says to keep it like cash. A photograph can be used once at the named stall, so the recipient should share it only with the person serving the meal.
+## What a stall can do
+
+A stall can be paid only by presenting a card's secret. It cannot redirect money: the payout account is fixed when the meal is bought. The chain cannot see food, so a card holder could redeem without a plate being handed over. The plate photo is the buyer's check on that.
+
+## What the server can do
+
+The server stores fingerprints, first names, optional messages and the buyer's optional email. It sees the secret while serving and never stores or logs it. It cannot move money anywhere except to the stall or back to the buyer. It could delay a serve or a refund, but anyone can call refund after expiry, and the public chain record is the final word.

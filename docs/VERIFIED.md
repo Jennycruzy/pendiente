@@ -1,6 +1,6 @@
 # Testnet records
 
-These values were read from the test network on 13 October 2026. The public network was not used.
+Every value here was read from the Stellar test network on 13 October 2026, with the command that produced it. Nothing runs on the public network yet.
 
 ## Locker
 
@@ -56,11 +56,11 @@ The tests compare the stall balance before and after serving, and the buyer bala
 
 ## Retry and timing checks
 
-Three further testnet meals were served while fixing and measuring retries:
+Three more meals were served to test retries and measure timing:
 
-- [Buy](https://stellar.expert/explorer/testnet/tx/73f2497ab0acc2f08c33ad8d1aa676ec6b8693185d4a219f5ea529255efdaf6f), [serve](https://stellar.expert/explorer/testnet/tx/f7e17c574b23c5f73b3c944b11bad8bcc3ebfeb12655a9b8a5599fc4fd155007). Serve took 15.91 seconds before optimization.
+- [Buy](https://stellar.expert/explorer/testnet/tx/73f2497ab0acc2f08c33ad8d1aa676ec6b8693185d4a219f5ea529255efdaf6f), [serve](https://stellar.expert/explorer/testnet/tx/f7e17c574b23c5f73b3c944b11bad8bcc3ebfeb12655a9b8a5599fc4fd155007). This serve took 15.91 seconds; a later server change brought serving down to 6.91 seconds.
 - [Buy](https://stellar.expert/explorer/testnet/tx/ad4bf72ebdd53918d416239f10fce61d1aeac0495fa85ba08c58fad55252d371), [serve](https://stellar.expert/explorer/testnet/tx/974acc3e2b705ff6c065d7f106813b2037ac38c62345e866d81ff6fa74241806). Signed-buy replay returned the same meal.
-- [Buy](https://stellar.expert/explorer/testnet/tx/2992f6428a222b3b8a8632d12da643bdeab6e4d6ad92952d13edef7826bac498), [serve](https://stellar.expert/explorer/testnet/tx/c5a2cf6db57a066fb1bb47910e7cbc913c23a0274e769c74775a5f5154856a7a). The optimized serve took 6.91 seconds.
+- [Buy](https://stellar.expert/explorer/testnet/tx/2992f6428a222b3b8a8632d12da643bdeab6e4d6ad92952d13edef7826bac498), [serve](https://stellar.expert/explorer/testnet/tx/c5a2cf6db57a066fb1bb47910e7cbc913c23a0274e769c74775a5f5154856a7a). This serve took 6.91 seconds.
 
 Command: `E2E_ONLY_SERVE=1 node scripts/e2e-testnet.mjs`.
 
@@ -94,11 +94,9 @@ The public `/api/health` and `/api/proof` returned:
 {"bought":7,"served":5,"returned":2,"waiting":0,"paidCents":1500,"returnedCents":600}
 ```
 
-## Corrected token setup
+## Play-dollar token
 
-The earlier token `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` reports symbol `native`. It is XLM, not USDC. The earlier locker is superseded and must not be presented as a dollar demo.
-
-The new token is play-USDC issued by the existing testnet admin. It is not Circle-issued USDC.
+The token is play USDC issued by the testnet admin account. It is not Circle-issued USDC.
 
 ```text
 issuer=$(stellar keys address pendiente-testnet)

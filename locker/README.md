@@ -1,12 +1,12 @@
 # Pendiente locker
 
-The locker is written in Rust for Stellar. Keep this directory on the VPS or another machine with Rust and the Stellar CLI.
+The locker is the Stellar smart contract that holds each meal's USDC until the card is scanned or the meal expires. Building it needs Rust and the Stellar CLI.
 
 ## Test the locker
 
 ```sh
 . "$HOME/.cargo/env"
-cd /home/ubuntu/pendiente/locker
+cd locker
 cargo test
 ```
 
@@ -19,16 +19,14 @@ balance. They use a real Stellar Asset Contract in the test environment.
 
 ```sh
 . "$HOME/.cargo/env"
-cd /home/ubuntu/pendiente/locker
+cd locker
 stellar contract build
 ```
 
 The output is `target/wasm32v1-none/release/pendiente_locker.wasm`. The Stellar CLI sets the required target and build flags.
 
-Do not deploy this file to the real network until the breaker has signed off and the owner has supplied funded accounts.
-
-## Practice deployment
+## Testnet deployment
 
 The deployed testnet locker and its checks are recorded in
-`docs/VERIFIED.md`. The VPS keeps the test identity under the alias
-`pendiente-testnet`. Its secret is not stored in this repository.
+`docs/VERIFIED.md`. The admin identity is the Stellar CLI alias
+`pendiente-testnet`; its secret is never stored in this repository.

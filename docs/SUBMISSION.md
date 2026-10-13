@@ -1,55 +1,44 @@
-# Pendiente submission
+# Pendiente
 
-## English description — 150 words
+Buy a hot meal for someone back home. The cook is paid when the plate is served.
 
-Pendiente lets someone abroad buy a meal for a person back home. The stall is paid when the recipient presents a meal card. The buyer chooses a stall, approves its listed price, and shares the card through family.
+## Description
 
-The stall scans the paper card or types its backup code. A successful scan pays only the stall chosen at purchase. The buyer’s meal page then shows Served, with an optional plate photo.
+When you send money home for food, you never see the plate. Pendiente sells the meal itself.
 
-The same card cannot pay twice. If unused, the money returns after the deadline. Our public demo uses testnet play dollars, with a two-minute expiry.
+You pick a stall, approve its price once, and send a meal card on WhatsApp. The money is held on Stellar for that stall only. When your person shows the card, the stall scans it, serves the plate and is paid in seconds. You get a photo of the plate.
 
-We have verified QR payment, typed-code payment, and an automatic return on Stellar. Each has a public payment link and a balance check. The stall needs no XLM because the server pays serving fees.
+A card works once, at one stall. If it is never used, the money returns to you on its own. Stalls need no app, no account and no XLM: the counter page runs in any phone browser, and Pendiente pays the network fee.
 
-Future work includes Circle USDC on the public network and approved cash-out providers for stalls. These remain future work only.
+Pendiente runs on the Stellar test network today with play dollars. Seven meals have been bought there: five served and two returned on expiry.
 
-## Español
+## Descripción
 
-Pendiente permite comprar una comida para alguien en tu tierra. El local cobra cuando la persona presenta su tarjeta. El comprador elige un local, aprueba el precio y comparte la tarjeta con su familia.
+Compra un plato caliente para alguien en tu tierra. El puesto cobra solo cuando sirve el plato.
 
-El local escanea la tarjeta o escribe su código. El dinero solo puede llegar al local elegido. El comprador ve el estado Servido y una foto opcional del plato.
+Eliges un puesto, apruebas el precio una vez y envías la tarjeta por WhatsApp. El dinero queda reservado en Stellar para ese puesto. Cuando tu persona muestra la tarjeta, el puesto la escanea, sirve y cobra en segundos. Tú recibes una foto del plato.
 
-La tarjeta funciona una sola vez. Si nadie la usa, el dinero vuelve al comprador. Esta demo usa dólares de prueba y un plazo de dos minutos.
-
-## How it works
-
-1. Choose a stall and connect a testnet wallet.
-2. Get 10 play dollars, then approve the listed meal price.
-3. Download the full card image or share it by phone.
-4. Scan it at the counter, or type the 16-character code.
+Cada tarjeta sirve una vez, en un solo puesto. Si nadie la usa, el dinero vuelve a ti.
 
 ## Why Stellar
 
-Our final live serve took 6.91 seconds. A measured serving fee was 0.0017041 XLM. The built-in Stellar asset tool (SAC) moves the USDC play dollars. These are demo-issued dollars, not Circle-issued USDC.
+- A serve settled in 6.91 seconds in our timed test, for a fee of 0.0017041 XLM.
+- Stellar asset contracts move USDC with no custom token code.
+- Every buy, serve and refund is public on stellar.expert.
+- Anchors give stalls a path from digital dollars to local cash. That is the next step, not part of this build.
 
-Anchors are companies that can exchange digital dollars for cash. Approved cash-out providers are future work; no cash-out service is connected here.
+## Try it in 60 seconds
 
-## Links and real work
+1. Open [Pendiente](https://pendiente.54-154-121-30.sslip.io) and connect a testnet wallet such as Freighter.
+2. Tap **Get free play dollars**, then approve a $3.00 meal and download the card.
+3. On a second phone, tap **Scan card** and scan it. The stall is paid and the meal page shows Served.
+4. Scan the same card again. It is refused.
 
-- [Testnet site](https://pendiente.54-154-121-30.sslip.io/?practice=0)
-- [Free local practice](https://pendiente.54-154-121-30.sslip.io/?practice=1)
-- [Public proof](https://pendiente.54-154-121-30.sslip.io/proof)
-- Locker: `CCEWVBHEO7K6GH2C2WVB6RBGPWASFJGGLC67XBYA3VVE6KF6CCLAMNWQ`
-- See [verified payments](VERIFIED.md). No public-network meals are claimed.
-- Owner still supplies the public repo link and video link.
+No wallet? [Practice mode](https://pendiente.54-154-121-30.sslip.io/?practice=1) runs the whole flow on one device with no money.
 
-## 60-second judge walkthrough
+## Links
 
-0–15 seconds: open the testnet site, choose the stall and connect a funded testnet wallet.
-
-15–30 seconds: approve the meal price and download its card.
-
-30–45 seconds: open the counter on another phone. Scan the card, serve the meal, and show the payment link.
-
-45–60 seconds: show the meal page, then scan the card again to show its refusal.
-
-The owner’s physical phone run and plate photo still need to be recorded. Automated balance checks and local-browser tests have passed.
+- Live site: https://pendiente.54-154-121-30.sslip.io
+- Every served meal: https://pendiente.54-154-121-30.sslip.io/proof
+- Testnet locker: `CCEWVBHEO7K6GH2C2WVB6RBGPWASFJGGLC67XBYA3VVE6KF6CCLAMNWQ`
+- Testnet records with every payment link: [VERIFIED.md](VERIFIED.md)
