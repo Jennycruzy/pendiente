@@ -80,7 +80,9 @@ function createApp({ db: suppliedDb, chain = realChain, photoDirectory = photosP
   } : null
   const waitingCount = (stallId) => db.prepare("SELECT COUNT(*) AS count FROM meals WHERE stall_id = ? AND status = 'Waiting'").get(stallId).count || 0
   const publicStall = (stall) => ({ id: stall.id, name: stall.name, city: stall.city, address: stall.address,
-    priceCents: stall.price_cents, active: Boolean(stall.active), photo: stall.photo, waitingCount: waitingCount(stall.id) })
+    priceCents: stall.price_cents, active: Boolean(stall.active), photo: stallPhotoUrl(stall), waitingCount: waitingCount(stall.id) })
+  // Stall photos live in the database as data URLs; the API hands out a cacheable link instead of the bytes.
+  const stallPhotoUrl = (stall) => String(stall.photo).startsWith('data:image/') ? `/api/stalls/${encodeURIComponent(stall.id)}/photo?v=${sha256(stall.photo).slice(0, 12)}` : stall.photo
   const fail = (res, status, error) => res.status(status).json({ error })
 
   const photoIsSafe = (photoData) => {
@@ -137,6 +139,12 @@ function createApp({ db: suppliedDb, chain = realChain, photoDirectory = photosP
     } catch (error) { fail(res, 503, error instanceof Error ? error.message : 'chain_unavailable') }
   })
 
+  app.get('/api/stalls/:id/photo', (req, res) => {
+    const stall = db.prepare('SELECT photo FROM stalls WHERE id=?').get(req.params.id)
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(stall?.photo || '')
+    if (!match) return fail(res, 404, 'not_found')
+    res.set({ 'Content-Type': match[1], 'Cache-Control': 'public, max-age=604800, immutable' }).send(Buffer.from(match[2], 'base64'))
+  })
   app.get('/api/stalls', (_req, res) => res.json(db.prepare('SELECT * FROM stalls WHERE active = 1 ORDER BY created_at ASC').all().map(publicStall)))
   app.get('/api/practice/balance/:address', async (req, res) => {
     if (!chain.validAddress(req.params.address)) return fail(res, 400, 'invalid_address')
