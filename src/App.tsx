@@ -169,16 +169,20 @@ function PaymentPage({ copy }: { copy: Copy }) {
   const [balance, setBalance] = useState(0)
   const [approving, setApproving] = useState(false)
   const [error, setError] = useState('')
+  const paymentAttempt = useRef<{ credentials: Awaited<ReturnType<typeof newCardCredentials>>; signedXdr?: string } | null>(null)
   useEffect(() => { getStalls().then((items) => setStall(items.find((item) => item.id === stallId) ?? starterStall)) }, [stallId])
   const approve = async () => {
     setApproving(true); setError('')
     try {
-      const credentials = await newCardCredentials()
+      const credentials = paymentAttempt.current?.credentials || await newCardCredentials()
+      paymentAttempt.current ||= { credentials }
       if (!practiceMode) {
         if (!connected) throw new Error('wallet_required')
-        const prepared = await prepareMeal({ stallId: stall.id, buyer: connected, fingerprint: credentials.secretFingerprint, backupFingerprint: credentials.backupFingerprint })
-        const signedXdr = await signStellarTransaction(prepared.xdr, connected)
-        const meal = await submitMeal(signedXdr, { firstName: form.firstName, message: form.message, email: form.email })
+        if (!paymentAttempt.current.signedXdr) {
+          const prepared = await prepareMeal({ stallId: stall.id, buyer: connected, fingerprint: credentials.secretFingerprint, backupFingerprint: credentials.backupFingerprint })
+          paymentAttempt.current.signedXdr = await signStellarTransaction(prepared.xdr, connected)
+        }
+        const meal = await submitMeal(paymentAttempt.current.signedXdr, { firstName: form.firstName, message: form.message, email: form.email })
         saveCard({ mealId: meal.id, stallId: meal.stallId, secret: credentials.secret, backupCode: credentials.backupCode })
         navigate(`/meal/${meal.id}/card`, { replace: true }); return
       }
@@ -186,7 +190,8 @@ function PaymentPage({ copy }: { copy: Copy }) {
       saveCard({ mealId: meal.id, stallId: meal.stallId, secret: credentials.secret, backupCode: credentials.backupCode })
       navigate(`/meal/${meal.id}/card`, { replace: true })
     } catch (cause) {
-      setError(cause instanceof Error && cause.message === 'low_balance' ? copy.lowBalance : copy.rejectedPayment)
+      if (cause instanceof Error && cause.message === 'buy_failed' && paymentAttempt.current) delete paymentAttempt.current.signedXdr
+      setError(cause instanceof Error && cause.message === 'low_balance' ? copy.lowBalance : cause instanceof Error && cause.message === 'buy_failed' ? copy.buyFailed : cause instanceof Error && (cause.name === 'ApiError' || cause.name === 'TypeError') ? copy.networkFailure : copy.rejectedPayment)
       setApproving(false)
     }
   }
@@ -395,7 +400,7 @@ function errorFor(error: unknown, copy: Copy) {
 
 async function compressPhoto(file: File, copy: Copy): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error(copy.photoTypeError)
-  if (file.size > 20 * 1024 * 1024) throw new Error(copy.photoSizeError)
+  if (file.size >= 20 * 1024 * 1024) throw new Error(copy.photoSizeError)
   const image = new Image()
   const source = URL.createObjectURL(file)
   try {

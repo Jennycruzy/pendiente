@@ -18,6 +18,9 @@ if (wordsUnder > 120) errors.push(`Under the hood has ${wordsUnder} words (limit
 const copy = await read('src/lib/i18n.ts')
 const sentenceCandidates = [...copy.matchAll(/'([^'\\]*(?:\\.[^'\\]*)*)'/g)].map((match) => match[1])
 for (const sentence of sentenceCandidates) {
+  for (const word of banned) {
+    if (new RegExp(`\\b${word.replace('-', '\\-')}\\b`, 'i').test(sentence)) errors.push(`Site text uses banned word: ${word}`)
+  }
   const wordCount = sentence.split(/\s+/).filter(Boolean).length
   if (wordCount > 25) errors.push(`Site text is longer than 25 words: ${sentence}`)
 }

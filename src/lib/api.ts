@@ -7,7 +7,14 @@ const localStallsKey = 'pendiente.local.stalls.v2'
 const starterStall: Stall = { id: 'iya-basiras-buka', name: 'Iya Basira’s Buka', city: 'Lagos, Nigeria', address: '12 Market Street, Lagos', priceCents: 300, active: true, photo: 'plate', waitingCount: 0 }
 type LocalMeal = Meal & { secretFingerprint: string; backupFingerprint: string }
 
-const readLocalMeals = (): LocalMeal[] => { try { return JSON.parse(localStorage.getItem(localMealsKey) || '[]') as LocalMeal[] } catch { return [] } }
+const readLocalMeals = (): LocalMeal[] => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(localMealsKey) || '[]') as LocalMeal[]
+    const meals = stored.map((meal) => meal.status === 'Waiting' && Date.parse(meal.expiresAt) <= Date.now() ? { ...meal, status: 'Returned' as const } : meal)
+    if (meals.some((meal, index) => meal.status !== stored[index].status)) localStorage.setItem(localMealsKey, JSON.stringify(meals))
+    return meals
+  } catch { return [] }
+}
 const writeLocalMeals = (meals: LocalMeal[]) => localStorage.setItem(localMealsKey, JSON.stringify(meals))
 const localStall = (): Stall[] => { try { const value = JSON.parse(localStorage.getItem(localStallsKey) || 'null') as Stall[] | null; return value?.length ? value : [starterStall] } catch { return [starterStall] } }
 
@@ -27,7 +34,7 @@ export async function getStalls(): Promise<Stall[]> {
 
 export async function getMeal(id: string): Promise<Meal | null> {
   try { return await request<Meal>(`/api/meals/${encodeURIComponent(id)}`) } catch (error) {
-    if (error instanceof Error && error.name === 'ApiError' && error.message !== 'not_found') throw error
+    if (!practiceMode) { if (error instanceof Error && error.message === 'not_found') return null; throw error }
     return readLocalMeals().find((meal) => meal.id === id) ?? null
   }
 }
@@ -39,7 +46,7 @@ export async function createMeal(input: MealCreateInput): Promise<Meal> {
   try {
     if (!input.practice) return await request<Meal>('/api/meals', { method: 'POST', body: JSON.stringify(input) })
   } catch (error) {
-    if (error instanceof Error && error.name === 'ApiError') throw error
+    if (!practiceMode || error instanceof Error && error.name === 'ApiError') throw error
   }
   {
     const stall = localStall().find((item) => item.id === input.stallId) ?? starterStall
@@ -51,7 +58,7 @@ export async function createMeal(input: MealCreateInput): Promise<Meal> {
 
 export async function serveMeal(id: string, input: ServeInput): Promise<Meal> {
   try { return await request<Meal>(`/api/meals/${encodeURIComponent(id)}/serve`, { method: 'POST', body: JSON.stringify(input) }) } catch (error) {
-    if (error instanceof Error && error.name === 'ApiError') throw error
+    if (!practiceMode || error instanceof Error && error.name === 'ApiError') throw error
     const meals = readLocalMeals(); const meal = meals.find((item) => item.id === id)
     if (!meal) throw new Error('not_found')
     if (meal.stallId !== input.stallId) throw new Error('wrong_stall')
@@ -67,7 +74,7 @@ export async function serveMeal(id: string, input: ServeInput): Promise<Meal> {
 
 export async function checkMealCard(input: CardCheckInput): Promise<Meal> {
   try { return await request<Meal>('/api/counter/check', { method: 'POST', body: JSON.stringify(input) }) } catch (error) {
-    if (error instanceof Error && error.name === 'ApiError') throw error
+    if (!practiceMode || error instanceof Error && error.name === 'ApiError') throw error
     const meals = readLocalMeals(); const secretFingerprint = input.secret ? await fingerprintSecret(input.secret) : ''
     const backupFingerprint = input.backupCode ? await fingerprintSecret(await secretFromBackupCode(input.backupCode)) : ''
     const meal = meals.find((item) => (!input.mealId || item.id === input.mealId) && item.stallId === input.stallId && (item.secretFingerprint === secretFingerprint || item.backupFingerprint === backupFingerprint))
@@ -81,7 +88,7 @@ export async function checkMealCard(input: CardCheckInput): Promise<Meal> {
 export type ProofData = { items: Meal[]; totals: { bought: number; served: number; returned: number; waiting: number; paidCents: number; returnedCents: number }; nextCursor: string | null }
 export async function getProof(cursor = ''): Promise<ProofData> {
   try { return await request<ProofData>(`/api/proof?cursor=${encodeURIComponent(cursor)}`) } catch (error) {
-    if (error instanceof Error && error.name === 'ApiError') throw error
+    if (!practiceMode || error instanceof Error && error.name === 'ApiError') throw error
     if (!practiceMode) throw error
     const meals = readLocalMeals()
     const served = meals.filter((meal) => meal.status === 'Served')
@@ -97,7 +104,7 @@ export async function submitTrust(signedXdr: string) { return request('/api/prac
 
 export async function createStall(input: AdminStallInput): Promise<Stall> {
   try { return await request<Stall>('/api/admin/stalls', { method: 'POST', headers: { 'x-admin-key': input.adminKey }, body: JSON.stringify(input) }) } catch (error) {
-    if (error instanceof Error && error.name === 'ApiError') throw error
+    if (!practiceMode || error instanceof Error && error.name === 'ApiError') throw error
     const id = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || `stall-${Date.now()}`
     const stall: Stall = { id, name: input.name, city: input.city, address: input.address, priceCents: input.priceCents, active: true, photo: input.photo ?? 'plate', waitingCount: 0 }
     localStorage.setItem(localStallsKey, JSON.stringify([...localStall().filter((item) => item.id !== id), stall])); return stall

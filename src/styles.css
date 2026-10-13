@@ -140,7 +140,10 @@ h3 { font-size: 19px; letter-spacing: -.02em; margin-bottom: 6px; }
   .chalkboard { min-height: 500px; }.chalk-copy strong { font-size: 130px; }.chalk-copy h1 { font-size: 35px; }
 }
 
+@page { size: A6 portrait; margin: 5mm; }
+
 @media print {
+  body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .practice-banner, .topbar, .footer, .card-page > .eyebrow, .card-page > h1, .card-page > .hero-lead, .card-warning, .card-actions, .centered-link { display: none !important; }
   .card-page { width: 100%; padding: 0; }.card-wrap { max-width: 620px; margin: 0 auto; }.meal-card { box-shadow: none; }
 }
