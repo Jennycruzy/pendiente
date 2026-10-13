@@ -6,7 +6,6 @@ server/pendiente.sqlite*
 locker/target
 server/uploads
 .DS_Store
-CODEX_SPEC.md
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
