@@ -12,7 +12,7 @@ interface LayoutProps {
   toggleLanguage: () => void
 }
 
-export const counterPath = '/counter/iya-basiras-buka'
+export const counterPath = '/counter'
 
 export function Layout({ children, copy, language, toggleLanguage }: LayoutProps) {
   const location = useLocation()

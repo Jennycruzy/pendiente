@@ -432,6 +432,11 @@ main.page-enter { animation: page-in .5s var(--ease); }
 .counter-stall-photo { width: 52px; height: 52px; border-radius: 14px; }
 .counter-stall strong { display: block; }
 .counter-stall span { font-size: 13px; color: rgba(255, 250, 240, .7); display: flex; gap: 8px; align-items: center; }
+.counter-switch { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--sun); white-space: nowrap; }
+.counter-picks { display: grid; gap: 10px; margin-top: 28px; }
+.counter-stall.pick { margin: 0; transition: background .2s, transform .25s var(--ease); }
+.counter-stall.pick:hover { background: rgba(255, 255, 255, .12); transform: translateX(4px); }
+.counter-stall.pick b { margin-left: auto; color: var(--sun); font-size: 20px; padding-right: 8px; }
 .scan-panel { background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); border-radius: 28px; padding: 18px; }
 .scan-stage { width: 100%; display: grid; justify-items: center; gap: 8px; padding: 34px 20px 28px; border-radius: 22px; background: linear-gradient(160deg, var(--hot), #c7400f); color: #fff; box-shadow: 0 26px 50px -20px rgba(255, 107, 31, .8); transition: transform .3s var(--ease); }
 .scan-stage:hover { transform: scale(1.01); }

@@ -15,6 +15,8 @@ import { practiceMode, signStellarTransaction } from './lib/wallet'
 import { WalletProvider, dollars, shortAddress, useWallet } from './lib/walletContext'
 
 const cardStorageKey = 'pendiente.cards.v1'
+// The served-plate email is offered only when the server has an email sender configured.
+const emailNotice = import.meta.env.VITE_EMAIL_NOTICE === 'true'
 
 function readCards(): CardSecret[] {
   try {
@@ -66,6 +68,7 @@ function App() {
         <Route path="/meal/:mealId/card" element={<MealCardPage copy={t} />} />
         <Route path="/meal/:mealId" element={<MealPage copy={t} />} />
         <Route path="/meals" element={<MyMealsPage copy={t} />} />
+        <Route path="/counter" element={<CounterPickPage copy={t} />} />
         <Route path="/counter/:stallId" element={<CounterPage copy={t} />} />
         <Route path="/proof" element={<ProofPage copy={t} />} />
         <Route path="/chalkboard" element={<ChalkboardPage copy={t} />} />
@@ -117,7 +120,7 @@ function HomePage({ copy, language }: { copy: Copy; language: Language }) {
             <h1><span className="line"><span>{copy.heroTitleA}</span></span><span className="line accent"><span>{copy.heroTitleB}</span></span></h1>
             <p className="hero-lead">{copy.heroLead}</p>
             <div className="hero-actions">
-              <Link className="button button-hot" to={`/stall/${stall.id}`}>{copy.heroCta} <span aria-hidden="true">→</span></Link>
+              <Link className="button button-hot" to="/#give">{copy.heroCta} <span aria-hidden="true">→</span></Link>
               <Link className="button button-glass" to="/proof">{copy.heroSecondary}</Link>
             </div>
             <div className="hero-stats">
@@ -149,7 +152,7 @@ function HomePage({ copy, language }: { copy: Copy; language: Language }) {
       <section className="section page-width" id="give">
         <div className="section-head reveal"><div className="eyebrow">01 · {copy.giveTitle}</div><h2>{copy.giveTitle}</h2><p>{copy.giveLead}</p></div>
         <div className="stall-feature-list">
-          {stalls.map((item) => <StallFeature key={item.id} stall={item} copy={copy} />)}
+          {stalls.map((item, index) => <StallFeature key={item.id} stall={item} copy={copy} sides={stallSides[index % stallSides.length]} />)}
         </div>
       </section>
 
@@ -208,19 +211,21 @@ function HomePage({ copy, language }: { copy: Copy; language: Language }) {
         <div className="closing-photo" style={{ backgroundImage: `url(${foodPhoto('jollof')})` }} aria-hidden="true" />
         <div className="page-width closing-inner reveal">
           <h2>{copy.storyQuote}</h2>
-          <Link className="button button-hot" to={`/stall/${stall.id}`}>{copy.heroCta} <span aria-hidden="true">→</span></Link>
+          <Link className="button button-hot" to="/#give">{copy.heroCta} <span aria-hidden="true">→</span></Link>
         </div>
       </section>
     </>
   )
 }
 
-function StallFeature({ stall, copy }: { stall: Stall; copy: Copy }) {
+const stallSides = [['buka', 'dodo'], ['egusi', 'pepper'], ['suya', 'puffpuff'], ['ricebeans', 'moimoi']]
+
+function StallFeature({ stall, copy, sides }: { stall: Stall; copy: Copy; sides: string[] }) {
   return <Link className="stall-feature reveal" to={`/stall/${stall.id}`}>
     <div className="stall-feature-media">
       <StallPhoto photo={stall.photo} photoLabel={stall.name} className="feature-main" />
-      <div className="feature-side" style={{ backgroundImage: `url(${foodPhoto('buka', true)})` }} aria-hidden="true" />
-      <div className="feature-side two" style={{ backgroundImage: `url(${foodPhoto('dodo', true)})` }} aria-hidden="true" />
+      <div className="feature-side" style={{ backgroundImage: `url(${foodPhoto(sides[0], true)})` }} aria-hidden="true" />
+      <div className="feature-side two" style={{ backgroundImage: `url(${foodPhoto(sides[1], true)})` }} aria-hidden="true" />
     </div>
     <div className="stall-feature-body">
       <div className="pill-row"><span className="pill live"><span className="live-dot" /> {copy.livePill}</span><span className="pill">{stall.city}</span></div>
@@ -265,7 +270,7 @@ function StallPage({ copy }: { copy: Copy }) {
           <label>{copy.forLabel}<span className="optional">{copy.forHint}</span><input value={firstName} onChange={(event) => setFirstName(event.target.value.slice(0, 40))} placeholder="Mama Bisi" autoFocus /></label>
           <label>{copy.messageLabel}<span className="optional">{message.length}/80</span><textarea value={message} maxLength={80} onChange={(event) => setMessage(event.target.value)} placeholder={copy.messageHint} rows={3} /></label>
           <div className="chips">{ideas.map((idea) => <button type="button" key={idea} className={message === idea ? 'on' : ''} onClick={() => setMessage(idea)}>{idea}</button>)}</div>
-          <label>{copy.emailLabel}<span className="optional">{copy.emailHint}</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>
+          {emailNotice && <label>{copy.emailLabel}<span className="optional">{copy.emailHint}</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /></label>}
           <button className="button button-hot button-wide" type="submit">{copy.continuePay} <span aria-hidden="true">→</span></button>
         </form>
       </div>
@@ -498,6 +503,24 @@ function MyMealsPage({ copy }: { copy: Copy }) {
 
 type ScannedCard = { mealId?: string; stallId?: string; secret?: string }
 
+const counterStallKey = 'pendiente.counter.stall'
+
+function CounterPickPage({ copy }: { copy: Copy }) {
+  const location = useLocation()
+  const [stalls, setStalls] = useState<Stall[] | null>(null)
+  useEffect(() => { getStalls().then(setStalls).catch(() => setStalls([starterStall])) }, [])
+  const remembered = (() => { try { return localStorage.getItem(counterStallKey) } catch { return null } })()
+  const choosing = new URLSearchParams(location.search).has('pick')
+  if (!stalls) return <Loading copy={copy} />
+  const known = stalls.find((stall) => stall.id === remembered)
+  if (!choosing && known) return <Navigate to={`/counter/${known.id}`} replace />
+  if (stalls.length === 1) return <Navigate to={`/counter/${stalls[0].id}`} replace />
+  return <section className="counter-shell"><div className="counter-inner">
+    <div className="counter-heading"><span className="pill dark">{copy.counterBadge}</span><h1>{copy.counterPickTitle}</h1><p className="lead">{copy.counterPickLead}</p></div>
+    <div className="counter-picks">{stalls.map((stall) => <Link key={stall.id} className="counter-stall pick" to={`/counter/${stall.id}`}><StallPhoto photo={stall.photo} photoLabel={stall.name} className="counter-stall-photo" /><div><strong>{stall.name}</strong><span>{stall.city}</span></div><b aria-hidden="true">→</b></Link>)}</div>
+  </div></section>
+}
+
 function CounterPage({ copy }: { copy: Copy }) {
   const { stallId } = useParams()
   const [stall, setStall] = useState<Stall>(starterStall)
@@ -510,6 +533,7 @@ function CounterPage({ copy }: { copy: Copy }) {
   const [serving, setServing] = useState(false)
   const [paidMeal, setPaidMeal] = useState<Meal | null>(null)
   useEffect(() => { getStalls().then((items) => setStall(items.find((item) => item.id === stallId) ?? starterStall)).catch(() => undefined) }, [stallId, paidMeal])
+  useEffect(() => { if (stallId) try { localStorage.setItem(counterStallKey, stallId) } catch { /* the choice is only a convenience */ } }, [stallId])
   const runCheck = async (payload: ScannedCard) => {
     setError(''); setCandidate(null); setScanned(payload)
     try {
@@ -542,7 +566,7 @@ function CounterPage({ copy }: { copy: Copy }) {
     <div className="counter-inner">
       <div className="counter-heading">
         <div><span className="pill dark">{copy.counterBadge}</span><h1>{copy.counterTitle}</h1><p className="lead">{copy.counterLead}</p></div>
-        <div className="counter-stall"><StallPhoto photo={stall.photo} photoLabel={stall.name} className="counter-stall-photo" /><div><strong>{stall.name}</strong><span><span className="live-dot" /> {stall.waitingCount} {copy.mealsWaiting}</span></div></div>
+        <div className="counter-stall"><StallPhoto photo={stall.photo} photoLabel={stall.name} className="counter-stall-photo" /><div><strong>{stall.name}</strong><span><span className="live-dot" /> {stall.waitingCount} {copy.mealsWaiting}</span></div><Link className="counter-switch" to="/counter?pick=1">{copy.counterSwitch}</Link></div>
       </div>
       <div className="scan-panel">
         {cameraOpen ? <CameraCapture copy={copy} onClose={() => setCameraOpen(false)} onPayload={(payload) => { setCameraOpen(false); runCheck(payload) }} /> :
@@ -566,8 +590,32 @@ function CounterPage({ copy }: { copy: Copy }) {
   </section>
 }
 
+type QrReader = (video: HTMLVideoElement) => Promise<string | undefined>
+
+// Uses the browser's own QR reader where it exists (Chrome on Android) and jsQR everywhere else (Safari on iPhone).
+async function makeQrReader(): Promise<QrReader> {
+  const Detector = (window as unknown as { BarcodeDetector?: new (options?: { formats?: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector
+  if (Detector) {
+    const detector = new Detector({ formats: ['qr_code'] })
+    return async (video) => (await detector.detect(video))[0]?.rawValue
+  }
+  const { default: jsQR } = await import('jsqr')
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context) throw new Error('camera_unavailable')
+  return async (video) => {
+    const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight))
+    canvas.width = Math.round(video.videoWidth * scale); canvas.height = Math.round(video.videoHeight * scale)
+    if (!canvas.width || !canvas.height) return undefined
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    return jsQR(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' })?.data
+  }
+}
+
 function CameraCapture({ copy, onClose, onPayload }: { copy: Copy; onClose: () => void; onPayload: (payload: ScannedCard) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const payloadRef = useRef(onPayload)
+  payloadRef.current = onPayload
   const [message, setMessage] = useState(copy.cameraPoint)
   useEffect(() => {
     let stream: MediaStream | undefined
@@ -575,19 +623,30 @@ function CameraCapture({ copy, onClose, onPayload }: { copy: Copy; onClose: () =
     let cancelled = false
     const start = async () => {
       try {
-        const detector = (window as unknown as { BarcodeDetector?: new (options?: { formats?: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector
-        if (!detector) { setMessage(copy.cameraNote); return }
+        if (!navigator.mediaDevices?.getUserMedia) { setMessage(copy.cameraNotReady); return }
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
-        if (!videoRef.current) return
-        videoRef.current.srcObject = stream; await videoRef.current.play()
-        const scanner = new detector({ formats: ['qr_code'] })
-        const tick = async () => { if (cancelled || !videoRef.current) return; try { const results = await scanner.detect(videoRef.current); const raw = results[0]?.rawValue; if (raw) { const parsed = JSON.parse(raw) as ScannedCard & { v?: number }; if (parsed.v !== 2) { setMessage(copy.errorWrongCode); timer = window.setTimeout(tick, 350); return } onPayload(parsed) } } catch { /* keep looking */ } timer = window.setTimeout(tick, 350) }
-        tick()
-      } catch { setMessage(copy.cameraNotReady) }
+        const video = videoRef.current
+        if (cancelled || !video) return
+        video.srcObject = stream; await video.play()
+        const read = await makeQrReader()
+        const tick = async () => {
+          if (cancelled) return
+          const raw = await read(video).catch(() => undefined)
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw) as ScannedCard & { v?: number }
+              if (parsed.v === 2) { payloadRef.current(parsed); return }
+            } catch { /* not a Pendiente card */ }
+            setMessage(copy.errorWrongCode)
+          }
+          timer = window.setTimeout(tick, 250)
+        }
+        void tick()
+      } catch { if (!cancelled) setMessage(copy.cameraNotReady) }
     }
-    start()
+    void start()
     return () => { cancelled = true; if (timer) window.clearTimeout(timer); stream?.getTracks().forEach((track) => track.stop()) }
-  }, [copy.cameraNotReady, copy.cameraNote, copy.cameraPoint, onPayload])
+  }, [copy.cameraNotReady, copy.cameraPoint, copy.errorWrongCode])
   return <div className="camera-box"><div className="camera-top"><strong>{copy.scanCard}</strong><button type="button" onClick={onClose} aria-label={copy.closeCamera}>×</button></div><div className="camera-view"><video ref={videoRef} muted playsInline /><span className="scan-frame"><i /><i /><i /><i /><span className="scan-line" /></span></div><p>{message}</p></div>
 }
 
