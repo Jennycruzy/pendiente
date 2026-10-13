@@ -22,7 +22,7 @@ const serverKeypair = serverSecret ? Keypair.fromSecret(serverSecret) : null
 const rpcServer = new rpc.Server(rpcUrl, { timeout: 30_000 })
 const readClients = new Map()
 async function queryContract(id, method, args = {}) {
-  if (!readClients.has(id)) readClients.set(id, sdkContract.Client.from({ contractId: id, rpcUrl, networkPassphrase, server: rpcServer }))
+  if (!readClients.has(id)) readClients.set(id, sdkContract.Client.from({ contractId: id, rpcUrl, networkPassphrase, server: rpcServer }).catch((error) => { readClients.delete(id); throw error }))
   const client = await readClients.get(id)
   return { result: (await client[method](args)).result }
 }

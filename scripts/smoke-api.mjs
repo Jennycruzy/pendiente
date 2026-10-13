@@ -67,6 +67,8 @@ try {
   const chunk = (name) => { const bytes = Buffer.alloc(12); bytes.write(name, 4); return bytes }
   const fakePng = Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), chunk('IDAT'), chunk('IEND')])
   assert.throws(() => cleanPhoto(`data:image/png;base64,${fakePng.toString('base64')}`), /photo_too_large_or_not_a_photo/)
+  const fakeWebp = Buffer.alloc(20); fakeWebp.write('RIFF'); fakeWebp.writeUInt32LE(12, 4); fakeWebp.write('WEBP', 8); fakeWebp.write('VP8 ', 12)
+  assert.throws(() => cleanPhoto(`data:image/webp;base64,${fakeWebp.toString('base64')}`), /photo_too_large_or_not_a_photo/)
   const prepared = await request('/api/meals/prepare', { method: 'POST', body: JSON.stringify({ stallId: 'iya-basiras-buka', buyer, fingerprint: secretFingerprint, backupFingerprint }) })
   if (prepared.status !== 400) throw new Error(`unregistered stall accepted: ${JSON.stringify(prepared.body)}`)
   app.locals.db.prepare('UPDATE stalls SET chain_stall_id=1,payout_address=? WHERE id=?').run(payout, 'iya-basiras-buka')

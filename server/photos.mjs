@@ -49,13 +49,22 @@ export function cleanPhoto(value) {
     if (!ended || !image || !header) throw new Error('photo_too_large_or_not_a_photo')
     bytes = Buffer.concat(parts); extension = 'png'
   } else {
-    if (input.toString('ascii', 0, 4) !== 'RIFF' || input.toString('ascii', 8, 12) !== 'WEBP') throw new Error('photo_too_large_or_not_a_photo')
+    if (input.length < 12 || input.toString('ascii', 0, 4) !== 'RIFF' || input.toString('ascii', 8, 12) !== 'WEBP' || input.readUInt32LE(4) + 8 !== input.length) throw new Error('photo_too_large_or_not_a_photo')
     const parts = [Buffer.from(input.subarray(0, 12))]
     let offset = 12, image = false
     while (offset + 8 <= input.length) {
       const type = input.toString('ascii', offset, offset + 4), size = input.readUInt32LE(offset + 4), end = offset + 8 + size + (size % 2)
       if (end > input.length) throw new Error('photo_too_large_or_not_a_photo')
-      if (['VP8 ', 'VP8L', 'ANMF'].includes(type)) image = true
+      if (type === 'VP8 ') {
+        const frame = offset + 8
+        if (size < 11 || input[frame] & 1 || !input.subarray(frame + 3, frame + 6).equals(Buffer.from([0x9d, 1, 0x2a])) || !(input.readUInt16LE(frame + 6) & 0x3fff) || !(input.readUInt16LE(frame + 8) & 0x3fff)) throw new Error('photo_too_large_or_not_a_photo')
+        image = true
+      }
+      if (type === 'VP8L') {
+        if (size < 6 || input[offset + 8] !== 0x2f) throw new Error('photo_too_large_or_not_a_photo')
+        image = true
+      }
+      if (type === 'ANMF') throw new Error('photo_too_large_or_not_a_photo')
       if (!['EXIF', 'XMP '].includes(type)) {
         const chunk = Buffer.from(input.subarray(offset, end))
         if (type === 'VP8X') chunk[8] &= ~0x0c
