@@ -1,5 +1,6 @@
 import type { Copy } from '../lib/i18n'
 import type { Meal, Stall } from '../lib/types'
+import { formatBackupCode } from '../lib/crypto'
 
 interface CardPreviewProps {
   meal: Meal
@@ -31,9 +32,9 @@ export function CardPreview({ meal, stall, qrDataUrl, backupCode, copy }: CardPr
         </div>
       </div>
       <div className="card-footer-grid">
-        <div><small>{copy.backup}</small><strong className="backup-code">{backupCode}</strong></div>
+          <div><small>{copy.backup}</small><strong className="backup-code">{formatBackupCode(backupCode)}</strong></div>
         <div><small>{copy.expires}</small><strong>{expiry}</strong></div>
-        <div><small>{copy.keepLikeCash}</small><strong>$3.00</strong></div>
+        <div><small>{copy.keepLikeCash}</small><strong>${(meal.amountCents / 100).toFixed(2)}</strong></div>
       </div>
     </div>
   )

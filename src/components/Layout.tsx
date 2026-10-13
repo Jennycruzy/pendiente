@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import type { Copy } from '../lib/i18n'
 import type { Language } from '../lib/types'
+import { practiceMode } from '../lib/wallet'
 
 interface LayoutProps {
   children: ReactNode
@@ -12,7 +13,6 @@ interface LayoutProps {
 
 export function Layout({ children, copy, language, toggleLanguage }: LayoutProps) {
   const location = useLocation()
-  const isPractice = true
   const links = [
     { href: '/', label: copy.navHome },
     { href: '/proof', label: copy.navProof },
@@ -23,7 +23,7 @@ export function Layout({ children, copy, language, toggleLanguage }: LayoutProps
     <div className="app-shell">
       <div className="practice-banner">
         <span className="practice-dot" aria-hidden="true" />
-        {isPractice ? copy.practice : copy.practice}
+        {practiceMode ? copy.localPractice : copy.practice}
       </div>
       <header className="topbar">
         <Link className="brand" to="/" aria-label="Pendiente">

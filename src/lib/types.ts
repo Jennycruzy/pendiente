@@ -25,7 +25,10 @@ export interface Meal {
   expiresAt: string
   servedAt?: string
   photoData?: string
+  photoUrl?: string
   paymentLink?: string
+  serveLink?: string
+  refundLink?: string
 }
 
 export interface CardSecret {
@@ -43,6 +46,13 @@ export interface MealCreateInput {
   secretFingerprint: string
   backupFingerprint: string
   practice?: boolean
+}
+
+export interface PaymentPrepareInput {
+  stallId: string
+  buyer: string
+  fingerprint: string
+  backupFingerprint: string
 }
 
 export interface ServeInput {

@@ -6,11 +6,11 @@ import { Layout } from './components/Layout'
 import { PlateArt } from './components/PlateArt'
 import { StallPhoto } from './components/StallPhoto'
 import { StatusBadge } from './components/StatusBadge'
-import { fingerprintSecret, newCardCredentials, sha256 } from './lib/crypto'
+import { formatBackupCode, newCardCredentials, normalizeBackupCode } from './lib/crypto'
 import { copy as translations, type Copy } from './lib/i18n'
-import { checkMealCard, createMeal, createStall, getMeal, getProof, getStalls, serveMeal, starterStall } from './lib/api'
+import { buyerBalance, checkMealCard, createMeal, createStall, fundPractice, getMeal, getProof, getStalls, prepareMeal, prepareTrust, serveMeal, starterStall, submitMeal, submitTrust } from './lib/api'
 import type { CardSecret, Language, Meal, Stall } from './lib/types'
-import { connectStellarWallet, practiceMode } from './lib/wallet'
+import { connectStellarWallet, practiceMode, signStellarTransaction } from './lib/wallet'
 import { BrowserRouter } from 'react-router-dom'
 
 const cardStorageKey = 'pendiente.cards.v1'
@@ -165,31 +165,54 @@ function PaymentPage({ copy }: { copy: Copy }) {
   const navigate = useNavigate()
   const form = (location.state as { firstName?: string; message?: string; email?: string } | null) ?? {}
   const [stall, setStall] = useState<Stall>(starterStall)
-  const [connected, setConnected] = useState(false)
+  const [connected, setConnected] = useState('')
+  const [balance, setBalance] = useState(0)
   const [approving, setApproving] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => { getStalls().then((items) => setStall(items.find((item) => item.id === stallId) ?? starterStall)) }, [stallId])
   const approve = async () => {
     setApproving(true); setError('')
     try {
-      if (!practiceMode) { setError(copy.livePaymentsPending); setApproving(false); return }
-      const { secret, backupCode } = await newCardCredentials()
-      const meal = await createMeal({ stallId: stall.id, firstName: form.firstName, message: form.message, email: form.email, secretFingerprint: await fingerprintSecret(secret), backupFingerprint: await sha256(backupCode), practice: true })
-      saveCard({ mealId: meal.id, stallId: meal.stallId, secret, backupCode })
+      const credentials = await newCardCredentials()
+      if (!practiceMode) {
+        if (!connected) throw new Error('wallet_required')
+        const prepared = await prepareMeal({ stallId: stall.id, buyer: connected, fingerprint: credentials.secretFingerprint, backupFingerprint: credentials.backupFingerprint })
+        const signedXdr = await signStellarTransaction(prepared.xdr, connected)
+        const meal = await submitMeal(signedXdr, { firstName: form.firstName, message: form.message, email: form.email })
+        saveCard({ mealId: meal.id, stallId: meal.stallId, secret: credentials.secret, backupCode: credentials.backupCode })
+        navigate(`/meal/${meal.id}/card`, { replace: true }); return
+      }
+      const meal = await createMeal({ stallId: stall.id, firstName: form.firstName, message: form.message, email: form.email, secretFingerprint: credentials.secretFingerprint, backupFingerprint: credentials.backupFingerprint, practice: true })
+      saveCard({ mealId: meal.id, stallId: meal.stallId, secret: credentials.secret, backupCode: credentials.backupCode })
       navigate(`/meal/${meal.id}/card`, { replace: true })
-    } catch {
-      setError(copy.errorGeneric)
+    } catch (cause) {
+      setError(cause instanceof Error && cause.message === 'low_balance' ? copy.lowBalance : copy.rejectedPayment)
       setApproving(false)
     }
   }
   const connect = async () => {
     setError('')
-    if (practiceMode) { setConnected(true); return }
-    try { await connectStellarWallet(); setConnected(true) } catch { setError(copy.walletError) }
+    if (practiceMode) { setConnected('practice'); return }
+    try {
+      const address = await connectStellarWallet()
+      setConnected(address)
+      setBalance((await buyerBalance(address)).balance)
+    } catch { setError(copy.walletError) }
+  }
+  const fund = async () => {
+    setApproving(true); setError('')
+    try {
+      const { xdr } = await prepareTrust(connected)
+      await submitTrust(await signStellarTransaction(xdr, connected))
+      await fundPractice(connected)
+      setBalance((await buyerBalance(connected)).balance)
+    } catch { setError(copy.networkFailure) }
+    finally { setApproving(false) }
   }
   return <section className="page-width payment-page">
+    {connected && !practiceMode && <div className="payment-note"><span>{copy.connected}: {connected.slice(0, 8)}…{connected.slice(-6)}</span><strong>{copy.buyerBalance}: ${(balance / 10_000_000).toFixed(2)}</strong><button className="button button-light" type="button" disabled={approving} onClick={fund}>{copy.fundPractice}</button>{balance < stall.priceCents * 100_000 && <span>{copy.lowBalance}</span>}</div>}
     <Link className="back-link" to={`/stall/${stall.id}`}>← {copy.stallBack}</Link>
-    <div className="payment-layout"><div><div className="eyebrow">{copy.paymentLabel}</div><h1>{copy.paymentTitle}</h1><p className="hero-lead">{form.firstName ? `${copy.paymentFor} ${form.firstName} ${copy.paymentAt.toLowerCase()} ${stall.name}.` : `${copy.paymentAt} ${stall.name}.`}</p><div className="payment-note"><strong>{money(stall.priceCents)} {copy.paymentAt.toLowerCase()} {stall.name}.</strong><span>{copy.returnLine}</span></div></div><div className="payment-box"><div className="payment-row"><span>{copy.paymentMeal}</span><strong>{money(stall.priceCents)}</strong></div><div className="payment-row"><span>{copy.paymentStall}</span><strong>{stall.name}</strong></div><div className="payment-rule" />{!connected ? <button className="button button-dark button-wide" type="button" onClick={connect}>{practiceMode ? copy.practiceContinue : copy.connect} <span aria-hidden="true">→</span></button> : <button className="button button-primary button-wide" type="button" disabled={approving} onClick={approve}>{approving ? copy.approving : copy.approve} {!approving && <span aria-hidden="true">→</span>}</button>}{error && <p className="form-error">{error}</p>}<small className="payment-safe">{practiceMode ? copy.paymentSafe : copy.livePaymentsPending}</small></div></div>
+    <div className="payment-layout"><div><div className="eyebrow">{copy.paymentLabel}</div><h1>{copy.paymentTitle}</h1><p className="hero-lead">{form.firstName ? `${copy.paymentFor} ${form.firstName} ${copy.paymentAt.toLowerCase()} ${stall.name}.` : `${copy.paymentAt} ${stall.name}.`}</p><div className="payment-note"><strong>{money(stall.priceCents)} {copy.paymentAt.toLowerCase()} {stall.name}.</strong><span>{copy.demoReturnLine}</span></div></div><div className="payment-box"><div className="payment-row"><span>{copy.paymentMeal}</span><strong>{money(stall.priceCents)}</strong></div><div className="payment-row"><span>{copy.paymentStall}</span><strong>{stall.name}</strong></div><div className="payment-rule" />{!connected ? <button className="button button-dark button-wide" type="button" onClick={connect}>{practiceMode ? copy.practiceContinue : copy.connect} <span aria-hidden="true">→</span></button> : <button className="button button-primary button-wide" type="button" disabled={approving || (!practiceMode && balance < stall.priceCents * 100_000)} onClick={approve}>{approving ? copy.approving : copy.approve} {!approving && <span aria-hidden="true">→</span>}</button>}{error && <p className="form-error">{error}</p>}<small className="payment-safe">{practiceMode ? copy.localPractice : `${copy.connected} ${connected.slice(0, 6)}…`}</small></div></div>
   </section>
 }
 
@@ -198,6 +221,7 @@ function MealCardPage({ copy }: { copy: Copy }) {
   const [meal, setMeal] = useState<Meal | null>(null)
   const [stall, setStall] = useState<Stall>(starterStall)
   const [qrDataUrl, setQrDataUrl] = useState('')
+  const [cardImageUrl, setCardImageUrl] = useState('')
   const card = mealId ? cardFor(mealId) : undefined
   useEffect(() => {
     if (!mealId) return
@@ -211,10 +235,24 @@ function MealCardPage({ copy }: { copy: Copy }) {
     }).catch(() => { if (active) setMeal(null) })
     return () => { active = false }
   }, [mealId])
-  useEffect(() => { if (!meal || !card) return; QRCode.toDataURL(JSON.stringify({ v: 1, mealId: meal.id, stallId: meal.stallId, secret: card.secret }), { width: 360, margin: 1, color: { dark: '#10251f', light: '#fffdf5' } }).then(setQrDataUrl) }, [meal, card])
+  useEffect(() => { if (!meal || !card) return; QRCode.toDataURL(JSON.stringify({ v: 2, mealId: meal.id, stallId: meal.stallId, secret: card.secret }), { width: 360, margin: 1, color: { dark: '#10251f', light: '#fffdf5' } }).then(setQrDataUrl) }, [meal, card])
+  const shareText = `${copy.shareMessage} ${stall.name}. ${copy.attachCard}`
+  useEffect(() => {
+    if (meal && card && qrDataUrl) void makeCardImage(meal, stall, qrDataUrl, card.backupCode, copy).then(setCardImageUrl)
+  }, [meal, stall, qrDataUrl, card?.backupCode, copy])
   if (!meal || !card) return <section className="page-width empty-page"><h1>{copy.errorNotFound}</h1><Link className="button button-primary" to="/">{copy.navHome}</Link></section>
-  const shareText = `${copy.shareMessage} ${stall.name}. ${window.location.origin}/meal/${meal.id}`
-  return <section className="page-width card-page"><div className="eyebrow">{copy.paymentComplete}</div><h1>{copy.cardTitle}</h1><p className="hero-lead">{copy.cardLead}</p><div className="card-wrap"><CardPreview meal={meal} stall={stall} qrDataUrl={qrDataUrl} backupCode={card.backupCode} copy={copy} /></div><p className="card-warning"><span>◎</span> {copy.cardWarning}</p><div className="card-actions"><a className="button button-primary" href={qrDataUrl} download={`pendiente-${meal.id}.png`}>{copy.download} ↓</a><button className="button button-light" type="button" onClick={() => window.print()}>{copy.print}</button><a className="button button-light" href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">{copy.share}</a></div><Link className="text-link centered-link" to={`/meal/${meal.id}`}>{copy.openMealPage} ↗</Link></section>
+  const shareCard = async () => {
+    if (!cardImageUrl) return
+    const file = new File([await (await fetch(cardImageUrl)).blob()], `pendiente-${meal.id}.png`, { type: 'image/png' })
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Pendiente', text: `${copy.shareMessage} ${stall.name}` }) }
+      catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) console.error('Card sharing failed') }
+    } else {
+      const download = document.createElement('a'); download.href = cardImageUrl; download.download = file.name; download.click()
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer')
+    }
+  }
+return <section className="page-width card-page"><div className="eyebrow">{copy.paymentComplete}</div><h1>{copy.cardTitle}</h1><p className="hero-lead">{copy.cardLead}</p><div className="card-wrap"><CardPreview meal={meal} stall={stall} qrDataUrl={qrDataUrl} backupCode={card.backupCode} copy={copy} /></div><p className="card-warning"><span>◎</span> {copy.cardWarning}</p><div className="card-actions"><a className="button button-primary" href={cardImageUrl} download={`pendiente-${meal.id}.png`}>{copy.download} ↓</a><button className="button button-light" type="button" onClick={() => window.print()}>{copy.print}</button><button className="button button-light" type="button" onClick={() => void shareCard()}>{copy.share}</button></div><Link className="text-link centered-link" to={`/meal/${meal.id}`}>{copy.openMealPage} ↗</Link></section>
 }
 
 function MealPage({ copy }: { copy: Copy }) {
@@ -224,7 +262,7 @@ function MealPage({ copy }: { copy: Copy }) {
   useEffect(() => { if (!mealId) return; const load = () => getMeal(mealId).then(setMeal); load(); const timer = window.setInterval(load, 5000); return () => window.clearInterval(timer) }, [mealId])
   useEffect(() => { if (meal) getStalls().then((items) => setStall(items.find((item) => item.id === meal.stallId) ?? starterStall)) }, [meal])
   if (!meal) return <Loading copy={copy} />
-  return <section className="page-width meal-page"><div className="public-head"><div><div className="eyebrow">Pendiente / {stall.city}</div><h1>{meal.firstName ? `${copy.paymentFor} ${meal.firstName}.` : `${copy.cardWaiting}.`}</h1></div><StatusBadge status={meal.status} copy={copy} /></div><div className="meal-status-card"><div className="status-timeline"><div className="timeline-item done"><span>01</span><div><strong>{copy.mealBought}</strong><small>{shortDate(meal.boughtAt)}</small></div></div><div className={`timeline-line ${meal.status !== 'Waiting' ? 'done' : ''}`} /><div className={`timeline-item ${meal.status !== 'Waiting' ? 'done' : 'current'}`}><span>02</span><div><strong>{meal.status === 'Returned' ? copy.moneyReturned : copy.served}</strong><small>{meal.status === 'Waiting' ? `${copy.expiresPrefix} ${shortDate(meal.expiresAt)}` : shortDate(meal.servedAt)}</small></div></div></div><div className="meal-photo">{meal.photoData ? <img src={meal.photoData} alt={copy.plateAlt} /> : <><PlateArt /><span>{meal.status === 'Waiting' ? copy.plateWaiting : copy.noPhoto}</span></>}</div></div><div className="meal-meta"><div><small>{copy.stallLabel}</small><strong>{stall.name}</strong><span>{stall.address}</span></div><div><small>{copy.amountLabel}</small><strong>{money(meal.amountCents)}</strong><span>{copy.stellarTime}</span></div><div><small>{copy.seeStellar}</small><a href={meal.paymentLink ?? '#'} target="_blank" rel="noreferrer">{copy.seeStellar} ↗</a><span>{copy.publicPaymentRecord}</span></div></div><div className="meal-share"><span>{copy.shareMealPage}</span><button type="button" className="text-link" onClick={() => navigator.share?.({ title: copy.shareTitle, url: window.location.href })}>{copy.share} ↗</button></div></section>
+  return <section className="page-width meal-page"><div className="public-head"><div><div className="eyebrow">Pendiente / {stall.city}</div><h1>{meal.firstName ? `${copy.paymentFor} ${meal.firstName}.` : `${copy.cardWaiting}.`}</h1></div><StatusBadge status={meal.status} copy={copy} /></div><div className="meal-status-card"><div className="status-timeline"><div className="timeline-item done"><span>01</span><div><strong>{copy.mealBought}</strong><small>{shortDate(meal.boughtAt)}</small></div></div><div className={`timeline-line ${meal.status !== 'Waiting' ? 'done' : ''}`} /><div className={`timeline-item ${meal.status !== 'Waiting' ? 'done' : 'current'}`}><span>02</span><div><strong>{meal.status === 'Returned' ? copy.moneyReturned : copy.served}</strong><small>{meal.status === 'Waiting' ? `${copy.expiresPrefix} ${shortDate(meal.expiresAt)}` : shortDate(meal.servedAt)}</small></div></div></div><div className="meal-photo">{meal.photoUrl || meal.photoData ? <img src={meal.photoUrl || meal.photoData} alt={copy.plateAlt} /> : <><PlateArt /><span>{meal.status === 'Waiting' ? copy.plateWaiting : copy.noPhoto}</span></>}</div></div><div className="meal-meta"><div><small>{copy.stallLabel}</small><strong>{stall.name}</strong><span>{stall.address}</span></div><div><small>{copy.amountLabel}</small><strong>{money(meal.amountCents)}</strong><span>{copy.stellarTime}</span></div><div><small>{copy.seeStellar}</small><a href={meal.serveLink || meal.refundLink || meal.paymentLink || '#'} target="_blank" rel="noreferrer">{copy.seeStellar} ↗</a><span>{copy.publicPaymentRecord}</span></div></div><div className="meal-share"><span>{copy.shareMealPage}</span><button type="button" className="text-link" onClick={() => navigator.share?.({ title: copy.shareTitle, url: window.location.href })}>{copy.share} ↗</button></div></section>
 }
 
 type ScannedCard = { mealId?: string; stallId?: string; secret?: string }
@@ -247,7 +285,7 @@ function CounterPage({ copy }: { copy: Copy }) {
       setCandidate(meal)
     } catch (cause) { setError(errorFor(cause, copy)) }
   }
-  const checkTypedCode = (event: FormEvent) => { event.preventDefault(); if (code.trim().length < 8) { setError(copy.errorWrongCode); return } runCheck({}) }
+  const checkTypedCode = (event: FormEvent) => { event.preventDefault(); if (normalizeBackupCode(code).length < 16) { setError(copy.errorWrongCode); return } runCheck({}) }
   const serve = async () => {
     if (!candidate) return
     setError('')
@@ -258,7 +296,7 @@ function CounterPage({ copy }: { copy: Copy }) {
   }
   const choosePhoto = async (file?: File) => { if (!file) return; try { setPhotoData(await compressPhoto(file, copy)) } catch (cause) { setError(cause instanceof Error ? cause.message : copy.errorGeneric) } }
   if (paidMeal) return <section className="page-width counter-page success-page"><div className="success-mark">✓</div><div className="eyebrow">{stall.name}</div><h1>{copy.paid} {money(paidMeal.amountCents)}</h1><p className="hero-lead">{paidMeal.firstName ? `${copy.mealFor} ${paidMeal.firstName}.` : copy.mealWasServed} {copy.buyerCanSee}</p>{paidMeal.photoData && <img className="success-photo" src={paidMeal.photoData} alt={copy.plateAlt} />}<Link className="button button-primary button-wide" to={`/counter/${stall.id}`} onClick={() => { setPaidMeal(null); setCode(''); setScanned({}); setPhotoData(undefined) }}>{copy.scanAgain}</Link><Link className="text-link centered-link" to={`/meal/${paidMeal.id}`}>{copy.openMealPage} ↗</Link></section>
-  return <section className="page-width counter-page"><div className="counter-heading"><div><div className="eyebrow">{stall.name}</div><h1>{copy.counterTitle}</h1><p className="hero-lead">{copy.counterLead}</p></div><div className="counter-pill"><span className="waiting-dot" /> {stall.waitingCount} {copy.mealsWaiting}</div></div><div className="scan-panel"><button className="scan-button" type="button" onClick={() => { setCameraOpen(true); setError('') }}><span className="scan-icon">⌁</span><strong>{copy.scanCard}</strong><small>{copy.cameraUse}</small></button>{cameraOpen && <CameraCapture copy={copy} onClose={() => setCameraOpen(false)} onPayload={(payload) => { setCameraOpen(false); runCheck(payload) }} />}<div className="or-rule"><span>{copy.cameraOr}</span></div><form className="backup-form" onSubmit={checkTypedCode}><label>{copy.typeCode}<input value={code} onChange={(event) => setCode(event.target.value.replace(/[^a-z0-9]/gi, '').slice(0, 8).toUpperCase())} placeholder="AB12CD34" inputMode="text" autoCapitalize="characters" /></label><button className="button button-dark button-wide" type="submit">{copy.checkCard} →</button></form><p className="camera-note">{copy.cameraNote}</p>{error && <div className="counter-error">{error}</div>}</div>{candidate && <div className="valid-card"><div className="valid-head"><span className="valid-check">✓</span><div><strong>{copy.valid}</strong><span>{copy.mealFor} {candidate.firstName || copy.someone}</span></div><StatusBadge status={candidate.status} copy={copy} /></div><div className="valid-details"><span>{stall.name}</span><strong>{money(candidate.amountCents)}</strong></div><label className="photo-upload">{copy.takePhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => choosePhoto(event.target.files?.[0])} /><span>{photoData ? copy.photoReady : copy.choosePhoto}</span></label><button className="button button-primary button-wide" type="button" onClick={serve}>{copy.serveAndPay} →</button></div>}</section>
+  return <section className="page-width counter-page"><div className="counter-heading"><div><div className="eyebrow">{stall.name}</div><h1>{copy.counterTitle}</h1><p className="hero-lead">{copy.counterLead}</p></div><div className="counter-pill"><span className="waiting-dot" /> {stall.waitingCount} {copy.mealsWaiting}</div></div><div className="scan-panel"><button className="scan-button" type="button" onClick={() => { setCameraOpen(true); setError('') }}><span className="scan-icon">⌁</span><strong>{copy.scanCard}</strong><small>{copy.cameraUse}</small></button>{cameraOpen && <CameraCapture copy={copy} onClose={() => setCameraOpen(false)} onPayload={(payload) => { setCameraOpen(false); runCheck(payload) }} />}<div className="or-rule"><span>{copy.cameraOr}</span></div><form className="backup-form" onSubmit={checkTypedCode}><label>{copy.typeCode}<input value={formatBackupCode(code)} onChange={(event) => setCode(normalizeBackupCode(event.target.value).slice(0, 16))} placeholder="ABCD-2345-EFGH-6789" inputMode="text" autoCapitalize="characters" /></label><button className="button button-dark button-wide" type="submit">{copy.checkCard} →</button></form><p className="camera-note">{copy.cameraNote}</p>{error && <div className="counter-error">{error}</div>}</div>{candidate && <div className="valid-card"><div className="valid-head"><span className="valid-check">✓</span><div><strong>{copy.valid}</strong><span>{copy.mealFor} {candidate.firstName || copy.someone}</span></div><StatusBadge status={candidate.status} copy={copy} /></div><div className="valid-details"><span>{stall.name}</span><strong>{money(candidate.amountCents)}</strong></div><label className="photo-upload">{copy.takePhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => choosePhoto(event.target.files?.[0])} /><span>{photoData ? copy.photoReady : copy.choosePhoto}</span></label><button className="button button-primary button-wide" type="button" onClick={serve}>{copy.serveAndPay} →</button></div>}</section>
 }
 
 function CameraCapture({ copy, onClose, onPayload }: { copy: Copy; onClose: () => void; onPayload: (payload: ScannedCard) => void }) {
@@ -276,7 +314,7 @@ function CameraCapture({ copy, onClose, onPayload }: { copy: Copy; onClose: () =
         if (!videoRef.current) return
         videoRef.current.srcObject = stream; await videoRef.current.play()
         const scanner = new detector({ formats: ['qr_code'] })
-        const tick = async () => { if (cancelled || !videoRef.current) return; try { const results = await scanner.detect(videoRef.current); const raw = results[0]?.rawValue; if (raw) { const parsed = JSON.parse(raw) as ScannedCard & { v?: number }; onPayload(parsed) } } catch { /* keep looking */ } timer = window.setTimeout(tick, 350) }
+        const tick = async () => { if (cancelled || !videoRef.current) return; try { const results = await scanner.detect(videoRef.current); const raw = results[0]?.rawValue; if (raw) { const parsed = JSON.parse(raw) as ScannedCard & { v?: number }; if (parsed.v !== 2) { setMessage(copy.errorWrongCode); timer = window.setTimeout(tick, 350); return } onPayload(parsed) } } catch { /* keep looking */ } timer = window.setTimeout(tick, 350) }
         tick()
       } catch { setMessage(copy.cameraNotReady) }
     }
@@ -289,10 +327,12 @@ function CameraCapture({ copy, onClose, onPayload }: { copy: Copy; onClose: () =
 function ProofPage({ copy }: { copy: Copy }) {
   const [meals, setMeals] = useState<Meal[]>([])
   const [stalls, setStalls] = useState<Stall[]>([starterStall])
-  useEffect(() => { getProof().then(setMeals); getStalls().then(setStalls) }, [])
-  const counts = useMemo(() => ({ bought: meals.length, served: meals.filter((meal) => meal.status === 'Served').length, returned: meals.filter((meal) => meal.status === 'Returned').length }), [meals])
+  const [counts, setCounts] = useState({ bought: 0, served: 0, returned: 0, waiting: 0, paidCents: 0, returnedCents: 0 })
+  const [cursor, setCursor] = useState<string | null>(null)
+  const load = async (next = '') => { const data = await getProof(next); setMeals((current) => next ? [...current, ...data.items] : data.items); setCounts(data.totals); setCursor(data.nextCursor) }
+  useEffect(() => { void load(); getStalls().then(setStalls) }, [])
   const stallName = (id: string) => stalls.find((stall) => stall.id === id)?.name ?? copy.stallFallback
-  return <section className="page-width proof-page"><div className="proof-head"><div><div className="eyebrow">{copy.proofPublic}</div><h1>{copy.proofTitle}</h1><p className="hero-lead">{copy.proofLead}</p></div><div className="proof-live"><span className="live-dot" /> {copy.livePractice}</div></div><div className="proof-stats"><div><strong>{counts.bought}</strong><span>{copy.totalBought}</span></div><div><strong>{counts.served}</strong><span>{copy.totalServed}</span></div><div><strong>{counts.returned}</strong><span>{copy.totalReturned}</span></div></div>{meals.length > 0 && <div className="photo-grid">{meals.filter((meal) => meal.photoData).map((meal) => <div key={meal.id}><img src={meal.photoData} alt={copy.plateAlt} /><span>{stallName(meal.stallId)}</span></div>)}</div>}<div className="proof-table-wrap"><table><thead><tr><th>{copy.tableStall}</th><th>{copy.tableAmount}</th><th>{copy.status}</th><th>{copy.time}</th><th aria-label={copy.tableOpen} /></tr></thead><tbody>{meals.map((meal) => <tr key={meal.id}><td>{stallName(meal.stallId)}</td><td>{money(meal.amountCents)}</td><td><StatusBadge status={meal.status} copy={copy} /></td><td>{shortDate(meal.servedAt ?? meal.boughtAt)}</td><td><Link className="table-link" to={`/meal/${meal.id}`}>{copy.tableOpen} ↗</Link></td></tr>)}</tbody></table>{meals.length === 0 && <div className="empty-table">{copy.emptyPractice}</div>}</div></section>
+return <section className="page-width proof-page"><div className="proof-head"><div><div className="eyebrow">{copy.proofPublic}</div><h1>{copy.proofTitle}</h1><p className="hero-lead">{copy.proofLead}</p></div><div className="proof-live"><span className="live-dot" /> {copy.livePractice}</div></div><div className="proof-stats"><div><strong>{counts.bought}</strong><span>{copy.totalBought}</span></div><div><strong>{counts.served}</strong><span>{copy.totalServed}</span></div><div><strong>{counts.returned}</strong><span>{copy.totalReturned}</span></div></div>{meals.length > 0 && <div className="photo-grid">{meals.filter((meal) => (meal.photoUrl || meal.photoData)).map((meal) => <div key={meal.id}><img src={meal.photoUrl || meal.photoData} alt={copy.plateAlt} /><span>{stallName(meal.stallId)}</span></div>)}</div>}<div className="proof-table-wrap"><table><thead><tr><th>{copy.tableStall}</th><th>{copy.tableAmount}</th><th>{copy.status}</th><th>{copy.time}</th><th aria-label={copy.tableOpen} /></tr></thead><tbody>{meals.map((meal) => <tr key={meal.id}><td>{stallName(meal.stallId)}</td><td>{money(meal.amountCents)}</td><td><StatusBadge status={meal.status} copy={copy} /></td><td>{shortDate(meal.servedAt ?? meal.boughtAt)}</td><td><Link className="table-link" to={`/meal/${meal.id}`}>{copy.tableOpen} ↗</Link></td></tr>)}</tbody></table>{meals.length === 0 && <div className="empty-table">{copy.emptyPractice}</div>}</div>{cursor && <button className="button button-light" onClick={() => void load(cursor)}>{copy.moreMeals}</button>}<p>{copy.mealsWaiting}: {counts.waiting} · {copy.paid}: {money(counts.paidCents)} · {copy.moneyReturned}: {money(counts.returnedCents)}</p></section>
 }
 
 function ChalkboardPage({ copy }: { copy: Copy }) {
@@ -320,6 +360,25 @@ function AdminPage({ copy }: { copy: Copy }) {
     } catch { setError(copy.errorGeneric) }
   }
   return <section className="page-width admin-page"><div className="eyebrow">Pendiente</div><h1>{copy.adminTitle}</h1><p className="hero-lead">{copy.adminLead}</p><form className="admin-form" onSubmit={submit}><label>{copy.adminName}<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Iya Basira’s Buka" /></label><label>{copy.adminCity}<input required value={city} onChange={(event) => setCity(event.target.value)} placeholder="Lagos, Nigeria" /></label><label>{copy.adminAddress}<input required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="12 Market Street, Lagos" /></label><label>{copy.adminPhoto}<input type="file" accept="image/*" capture="environment" onChange={(event) => { const file = event.target.files?.[0]; if (file) compressPhoto(file, copy).then(setPhoto).catch((cause) => setError(cause instanceof Error ? cause.message : copy.errorGeneric)) }} />{photo && <span className="admin-photo-ready">{copy.photoReady}</span>}</label><label>{copy.adminPrice}<input required min="100" type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>{copy.adminPayout}<input required value={payout} onChange={(event) => setPayout(event.target.value)} placeholder="Stall payment account" /></label><label>{copy.adminKey}<input required type="password" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} placeholder={copy.adminKey} /></label><button className="button button-primary button-wide" type="submit">{copy.adminSave} →</button>{saved && <div className="admin-success">✓ {copy.adminSaved}</div>}{error && <div className="counter-error">{error}</div>}</form></section>
+}
+
+async function makeCardImage(meal: Meal, stall: Stall, qr: string, code: string, copy: Copy): Promise<string> {
+  const canvas = document.createElement('canvas'); canvas.width = 1000; canvas.height = 1400
+  const context = canvas.getContext('2d'); if (!context) throw new Error('card_image_unavailable')
+  context.fillStyle = '#fffdf5'; context.fillRect(0, 0, 1000, 1400)
+  context.fillStyle = '#10251f'; context.textAlign = 'center'
+  context.font = 'bold 56px Arial'; context.fillText('PENDIENTE', 500, 110)
+  context.font = '36px Arial'; context.fillText(`${copy.cardFor} ${meal.firstName || copy.someone}`, 500, 195, 880)
+  const image = new Image()
+  await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('card_image_unavailable')); image.src = qr })
+  context.drawImage(image, 220, 260, 560, 560)
+  context.font = 'bold 34px Arial'; context.fillText(formatBackupCode(code), 500, 890)
+  context.font = '32px Arial'; context.fillText(copy.showAt, 500, 980); context.fillText(stall.name, 500, 1030, 880)
+  context.fillText(stall.address, 500, 1080, 880)
+  context.fillText(`${copy.expires}: ${new Date(meal.expiresAt).toLocaleString()}`, 500, 1160, 880)
+  context.font = '24px Arial'; context.fillText(copy.cardWarning, 500, 1250, 900)
+  context.fillText(`${copy.keepLikeCash} · ${money(meal.amountCents)}`, 500, 1320)
+  return canvas.toDataURL('image/png')
 }
 
 function Loading({ copy }: { copy: Copy }) { return <section className="page-width loading-page"><div className="loading-spinner" /><span>{copy.loading}</span></section> }

@@ -2,6 +2,16 @@ import type { Language } from './types'
 
 export const copy = {
   en: {
+    attachCard: 'Attach the downloaded meal card image so it can be used.',
+    moreMeals: 'More meals',
+    localPractice: 'Practice on this device, no money moves',
+    buyerBalance: 'Your play dollars',
+    fundPractice: 'Get 10 play dollars',
+    lowBalance: 'You need more play dollars. Tap Get 10 play dollars, then try again.',
+    connected: 'Connected',
+    rejectedPayment: 'Payment was not approved. Open your wallet and try again.',
+    networkFailure: 'We could not reach Stellar. Please try again.',
+    demoReturnLine: 'Practice meals return after 2 minutes if unused.',
     practice: 'Practice mode — play money',
     navHome: 'Home',
     navProof: 'Proof',
@@ -160,6 +170,16 @@ export const copy = {
     photoStillLarge: 'That photo is still too large. Choose a smaller plate photo.',
   },
   es: {
+    attachCard: 'Adjunta la imagen descargada de la tarjeta para poder usarla.',
+    moreMeals: 'Más comidas',
+    localPractice: 'Práctica en este dispositivo, no se mueve dinero',
+    buyerBalance: 'Tus dólares de prueba',
+    fundPractice: 'Recibir 10 dólares de prueba',
+    lowBalance: 'Necesitas más dólares de prueba. Pulsa Recibir 10 dólares de prueba e inténtalo otra vez.',
+    connected: 'Conectado',
+    rejectedPayment: 'No se aprobó el pago. Abre tu billetera e inténtalo otra vez.',
+    networkFailure: 'No pudimos conectar con Stellar. Inténtalo otra vez.',
+    demoReturnLine: 'Las comidas de prueba se devuelven después de 2 minutos si no se usan.',
     practice: 'Modo de práctica — dinero de juego',
     navHome: 'Inicio',
     navProof: 'Prueba',
