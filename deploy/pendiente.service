@@ -9,13 +9,13 @@ User=ubuntu
 WorkingDirectory=/home/ubuntu/pendiente
 Environment=PORT=3011
 Environment=PENDIENTE_DB=/home/ubuntu/pendiente-data/pendiente.sqlite
-Environment=PRACTICE_EXPIRY_MINUTES=2
+Environment=PENDIENTE_DATA_DIR=/home/ubuntu/pendiente-data
 Environment=STELLAR_ENABLED=true
-Environment=STELLAR_CONTRACT_ID=CCD3BHXH6WQM7XXU3EWR5S4KW7TQOHBNZ4VTKLJ3HBAFWFUFWB4ULQAR
-Environment=STELLAR_SOURCE_ACCOUNT=pendiente-testnet
-Environment=STELLAR_FEE_SOURCE_ACCOUNT=pendiente-testnet
+EnvironmentFile=/home/ubuntu/pendiente-data/server.env
+Environment=STELLAR_CONTRACT_ID=CCEWVBHEO7K6GH2C2WVB6RBGPWASFJGGLC67XBYA3VVE6KF6CCLAMNWQ
+Environment=STELLAR_TOKEN_CONTRACT_ID=CCOLZD3JWJPN4UWS64TO3ZNJQYYYOJQ3QAUVW47GOIVLMXP6HXQ73K6Z
+Environment=STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 Environment=STELLAR_NETWORK=testnet
-Environment=STELLAR_CLI_PATH=/usr/local/bin/stellar
 ExecStart=/usr/bin/node server/index.mjs
 Restart=on-failure
 RestartSec=3

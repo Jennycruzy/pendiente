@@ -25,6 +25,11 @@ server {
     root /var/www/pendiente;
     index index.html;
 
+    location /photos/ {
+        proxy_pass http://127.0.0.1:3011;
+        proxy_set_header Host $host;
+    }
+
     location /api/ {
         proxy_pass http://127.0.0.1:3011;
         proxy_http_version 1.1;
