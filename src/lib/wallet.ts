@@ -2,8 +2,9 @@ import { Networks } from '@stellar/stellar-sdk'
 
 let kitReady = false
 
-export const practiceMode = import.meta.env.VITE_PRACTICE_MODE !== 'false' || new URLSearchParams(window.location.search).get('practice') === '1' || sessionStorage.getItem('pendiente.practice') === '1'
-if (new URLSearchParams(window.location.search).has('practice')) sessionStorage.setItem('pendiente.practice', new URLSearchParams(window.location.search).get('practice') === '1' ? '1' : '0')
+const requestedPractice = new URLSearchParams(window.location.search).get('practice')
+if (requestedPractice !== null) sessionStorage.setItem('pendiente.practice', requestedPractice === '1' ? '1' : '0')
+export const practiceMode = requestedPractice !== null ? requestedPractice === '1' : import.meta.env.VITE_PRACTICE_MODE !== 'false' || sessionStorage.getItem('pendiente.practice') === '1'
 
 async function kit() {
   const [{ StellarWalletsKit }, { defaultModules }] = await Promise.all([

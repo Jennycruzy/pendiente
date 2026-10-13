@@ -39,5 +39,10 @@ try {
   await page.getByRole('button', { name: /Switch to/ }).click()
   assert.ok((await page.locator('.practice-banner').innerText()).includes('Práctica'))
   assert.deepEqual(problems, [])
+  if (process.env.BROWSER_SITE) {
+    await page.goto(`${process.env.BROWSER_SITE}/?practice=0`)
+    assert.equal((await page.locator('.practice-banner').innerText()).includes('dispositivo'), false)
+    assert.equal((await page.locator('.practice-banner').innerText()).includes('device'), false)
+  }
   console.log('PASS: mobile-size local practice, full-card download, formatted backup, one-use refusal, Spanish, genuine v2 screenshot')
 } finally { await browser.close() }
