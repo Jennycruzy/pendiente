@@ -83,6 +83,17 @@ The RPC returned SUCCESS for the first buy, first QR serve, typed-code serve and
 
 Fees were read with `rpc.Server.getTransaction(hash)`, from `resultXdr.fee_charged`. No dollar conversion or universal fee claim is made.
 
+## Final public check
+
+The fourth meal, used to test a wrong code, later [returned automatically](https://stellar.expert/explorer/testnet/tx/de00ea623fce8b8857345cde67dcc05a44ae79862b4e4477831167cda2038838).
+
+The public `/api/health` and `/api/proof` returned:
+
+```json
+{"ok":true,"network":"testnet","contract":"CCEWVBHEO7K6GH2C2WVB6RBGPWASFJGGLC67XBYA3VVE6KF6CCLAMNWQ","ledger":5175268}
+{"bought":7,"served":5,"returned":2,"waiting":0,"paidCents":1500,"returnedCents":600}
+```
+
 ## Corrected token setup
 
 The earlier token `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` reports symbol `native`. It is XLM, not USDC. The earlier locker is superseded and must not be presented as a dollar demo.
