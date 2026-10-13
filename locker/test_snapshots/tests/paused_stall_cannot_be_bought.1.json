@@ -92,7 +92,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                 },
                 {
-                  "i128": "90000000"
+                  "i128": "150000000"
                 }
               ]
             }
@@ -312,7 +312,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 518400
       },
       {
         "entry": {
@@ -381,7 +381,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 518400
       },
       {
         "entry": {
@@ -408,7 +408,7 @@
                       "symbol": "amount"
                     },
                     "val": {
-                      "i128": "90000000"
+                      "i128": "150000000"
                     }
                   },
                   {
@@ -550,7 +550,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 518400
       }
     ]
   },

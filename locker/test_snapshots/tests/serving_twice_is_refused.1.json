@@ -92,7 +92,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                 },
                 {
-                  "i128": "90000000"
+                  "i128": "150000000"
                 }
               ]
             }
@@ -117,7 +117,10 @@
                   "u32": 7
                 },
                 {
-                  "bytes": "72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793"
+                  "bytes": "9f4fb68f3e1dac82202f9aa581ce0bbf1f765df0e9ac3c8c57e20f685abab8ed"
+                },
+                {
+                  "bytes": "49cc2209d036c94d6e522c73af1fb6332a22a86b8a7722613864f5616bcaa9e4"
                 }
               ]
             }
@@ -311,6 +314,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "backup_fingerprint"
+                    },
+                    "val": {
+                      "bytes": "49cc2209d036c94d6e522c73af1fb6332a22a86b8a7722613864f5616bcaa9e4"
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "bought_at"
                     },
                     "val": {
@@ -338,7 +349,7 @@
                       "symbol": "fingerprint"
                     },
                     "val": {
-                      "bytes": "72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793"
+                      "bytes": "9f4fb68f3e1dac82202f9aa581ce0bbf1f765df0e9ac3c8c57e20f685abab8ed"
                     }
                   },
                   {
@@ -375,7 +386,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 518400
       },
       {
         "entry": {
@@ -427,7 +438,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 518400
       },
       {
         "entry": {
@@ -496,7 +507,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 518400
       },
       {
         "entry": {
@@ -523,7 +534,7 @@
                       "symbol": "amount"
                     },
                     "val": {
-                      "i128": "60000000"
+                      "i128": "120000000"
                     }
                   },
                   {
@@ -769,7 +780,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 518400
       }
     ]
   },

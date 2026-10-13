@@ -10,7 +10,10 @@ cd /home/ubuntu/pendiente/locker
 cargo test
 ```
 
-The test suite covers buying, serving once, wrong secrets, expiry, refunds, paused stalls, price limits, payout changes, and the waiting balance.
+The 20 tests cover the price floor, one-time serving with the QR preimage,
+serving with the backup preimage, wrong preimages, expiry, refunds, paused
+stalls, payout changes, buyer authorization, public views, and the waiting
+balance. They use a real Stellar Asset Contract in the test environment.
 
 ## Build the WebAssembly file
 
@@ -26,12 +29,6 @@ Do not deploy this file to the real network until the breaker has signed off and
 
 ## Practice deployment
 
-The tested practice locker is live on Stellar testnet:
-
-`CCD3BHXH6WQM7XXU3EWR5S4KW7TQOHBNZ4VTKLJ3HBAFWFUFWB4ULQAR`
-
-It uses a 120-second return time. Meal 1 was served once, and its second serve was refused. Meal 2 returned its full play-money amount after expiry. Meal 3 was bought and served through the Node server with its typed backup code.
-
-The VPS keeps the test identity under the alias `pendiente-testnet`. Its secret is not stored in this repository.
-
-The practice site is live at `https://pendiente.54-154-121-30.sslip.io`.
+The deployed testnet locker and its checks are recorded in
+`docs/VERIFIED.md`. The VPS keeps the test identity under the alias
+`pendiente-testnet`. Its secret is not stored in this repository.
