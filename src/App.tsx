@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } fr
 import QRCode from 'qrcode'
 import { CardPreview } from './components/CardPreview'
 import { Layout } from './components/Layout'
+import { FoodGallery } from './components/FoodGallery'
 import { PlateArt } from './components/PlateArt'
 import { StallPhoto } from './components/StallPhoto'
 import { StatusBadge } from './components/StatusBadge'
@@ -77,23 +78,21 @@ function HomePage({ copy }: { copy: Copy }) {
           <h1>{copy.homeTitle}</h1>
           <p className="hero-lead">{copy.homeLead}</p>
           <div className="hero-actions">
-            <a className="button button-primary" href="#stalls">{copy.browseStalls} <span aria-hidden="true">↓</span></a>
-            <Link className="text-link" to="/proof">{copy.navProof} <span aria-hidden="true">↗</span></Link>
+            <a className="button button-primary" href="#stalls">{copy.buyMeal} <span aria-hidden="true">↗</span></a>
+            <Link className="button button-outline" to="/counter/iya-basiras-buka">{copy.scanCard} <span aria-hidden="true">▣</span></Link>
           </div>
           <div className="hero-note"><span className="note-check">✓</span> {copy.noOnePaid}</div>
         </div>
-        <div className="hero-art" aria-label={copy.heroArtLabel}>
-          <div className="sun-disc" />
-          <div className="hero-card-stack">
-            <div className="mini-card mini-card-back" />
-            <div className="mini-card mini-card-front">
-              <span>PENDIENTE</span><strong>{copy.cardFor} Mama Bisi</strong><small>{copy.showAt}</small><b>✦</b>
-            </div>
-          </div>
-          <PlateArt />
-          <span className="hero-sticker">{copy.servedWithCare}</span>
+        <div className="hero-photo-scene">
+          <div className="hero-photo"><img src="/images/food/jollof.jpg" width="960" height="720" alt="Jollof rice" fetchPriority="high" /><span className="hero-photo-label">01 / Jollof rice</span></div>
+          <div className="meal-ticket"><span className="ticket-brand">PENDIENTE / {copy.cardWaiting}</span><strong>{copy.cardFor} Mama Bisi</strong><div className="ticket-route"><span>London</span><span aria-hidden="true">→</span><span>Lagos</span></div><small>{copy.ticketExample}</small></div>
+          <span className="hero-photo-credit">{copy.foodEditorial}</span>
         </div>
       </section>
+
+      <div className="home-actions page-width"><div><span className="action-number">01</span><div><strong>{copy.buyerPath}</strong><p>{copy.buyerPathBody}</p></div><a href="#stalls" aria-label={copy.buyMeal}>↗</a></div><div><span className="action-number">02</span><div><strong>{copy.stallPath}</strong><p>{copy.stallPathBody}</p></div><Link to="/counter/iya-basiras-buka" aria-label={copy.scanCard}>↗</Link></div></div>
+
+      <FoodGallery copy={copy} />
 
       <section className="story-strip">
         <div className="page-width story-grid">
@@ -133,7 +132,7 @@ function HomePage({ copy }: { copy: Copy }) {
 
 function StallTile({ stall, copy }: { stall: Stall; copy: Copy }) {
   return <Link className="stall-tile" to={`/stall/${stall.id}`}>
-    <StallPhoto photo={stall.photo} photoLabel={stall.name} />
+    <StallPhoto photo={stall.photo} photoLabel={stall.name} fallbackLabel={copy.foodEditorial} />
     <div className="stall-tile-body"><div className="stall-tile-top"><h3>{stall.name}</h3><span className="arrow-circle" aria-hidden="true">↗</span></div><p>{stall.city} · {money(stall.priceCents)} {copy.perMeal}</p><div className="waiting-count"><span className="waiting-dot" /> {stall.waitingCount} {copy.mealsWaiting}</div></div>
   </Link>
 }
@@ -149,7 +148,7 @@ function StallPage({ copy }: { copy: Copy }) {
   if (!stall) return <Loading copy={copy} />
   return <section className="page-width form-page">
     <Link className="back-link" to="/">← {copy.stallBack}</Link>
-    <div className="detail-hero"><StallPhoto photo={stall.photo} photoLabel={stall.name} className="detail-photo" /><div><div className="eyebrow">{stall.city}</div><h1>{stall.name}</h1><p className="detail-address">{stall.address}</p><div className="price-lockup"><strong>{money(stall.priceCents)}</strong><span>{copy.perMeal}</span></div></div></div>
+    <div className="detail-hero"><StallPhoto photo={stall.photo} photoLabel={stall.name} fallbackLabel={copy.foodEditorial} className="detail-photo" /><div><div className="eyebrow">{stall.city}</div><h1>{stall.name}</h1><p className="detail-address">{stall.address}</p><div className="price-lockup"><strong>{money(stall.priceCents)}</strong><span>{copy.perMeal}</span></div></div></div>
     <form className="meal-form" onSubmit={(event) => { event.preventDefault(); navigate(`/pay/${stall.id}`, { state: { firstName, message, email } }) }}>
       <label>{copy.forLabel}<span className="optional">{copy.forHint}</span><input value={firstName} onChange={(event) => setFirstName(event.target.value.slice(0, 40))} placeholder="Mama Bisi" /></label>
       <label>{copy.messageLabel}<span className="optional">{message.length}/80</span><textarea value={message} maxLength={80} onChange={(event) => setMessage(event.target.value)} placeholder={copy.messageHint} rows={3} /></label>

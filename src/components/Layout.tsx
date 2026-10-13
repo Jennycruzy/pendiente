@@ -16,7 +16,7 @@ export function Layout({ children, copy, language, toggleLanguage }: LayoutProps
   const links = [
     { href: '/', label: copy.navHome },
     { href: '/proof', label: copy.navProof },
-    { href: '/counter/iya-basiras-buka', label: copy.navCounter },
+    { href: '/counter/iya-basiras-buka', label: copy.scanCard },
   ]
 
   return (
@@ -36,7 +36,7 @@ export function Layout({ children, copy, language, toggleLanguage }: LayoutProps
               {link.label}
             </Link>
           ))}
-          <Link className="board-link" to="/chalkboard">{copy.navBoard}</Link>
+          <Link className="nav-buy" to="/stall/iya-basiras-buka">{copy.buyMeal} <span aria-hidden="true">↗</span></Link>
         </nav>
         <button className="language-toggle" onClick={toggleLanguage} type="button" aria-label={`${copy.switchTo} ${copy.language}`}>
           {language === 'en' ? 'ES' : 'EN'}
