@@ -203,8 +203,14 @@ async function readMealTotals() {
 
 export async function tokenBalance(owner) {
   if (!ready() || !tokenId) return 0
-  const { result: value } = await queryContract(tokenId, 'balance', { id: owner }, networkPassphrase)
-  return Number(value ?? 0)
+  try {
+    const { result: value } = await queryContract(tokenId, 'balance', { id: owner }, networkPassphrase)
+    return Number(value ?? 0)
+  } catch (error) {
+    // A wallet that has not added the play-dollar trustline yet simply holds nothing.
+    if (/trustline entry is missing/i.test(String(error instanceof Error ? error.message : error))) return 0
+    throw error
+  }
 }
 export async function hasTrustline(owner) {
   if (!validAddress(owner)) return false
