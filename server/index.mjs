@@ -5,13 +5,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as realChain from './stellar.mjs'
+import { cleanPhoto } from './photos.mjs'
 
 const port = Number(process.env.PORT || 3011)
 const dataDir = process.env.PENDIENTE_DATA_DIR || resolve(process.env.HOME || '.', 'pendiente-data')
 const databasePath = process.env.PENDIENTE_DB || resolve(dataDir, 'pendiente.sqlite')
-const photoDir = resolve(dataDir, 'photos')
+const photosPath = resolve(dataDir, 'photos')
 mkdirSync(dirname(databasePath), { recursive: true })
-mkdirSync(photoDir, { recursive: true })
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
 const fingerprintSecret = (value) => /^[0-9a-f]{64}$/i.test(String(value))
@@ -47,7 +47,7 @@ function setupDb(db) {
   `)
   const alters = [
     ['stalls', 'chain_stall_id INTEGER'],
-    ['meals', 'serve_tx TEXT'], ['meals', 'refund_tx TEXT'], ['meals', 'photo_path TEXT'],
+    ['meals', 'serve_tx TEXT'], ['meals', 'refund_tx TEXT'], ['meals', 'photo_path TEXT'], ['meals', 'serve_complete INTEGER NOT NULL DEFAULT 0'],
   ]
   for (const [table, column] of alters) {
     if (!db.prepare(`PRAGMA table_info(${table})`).all().some((item) => item.name === column.split(' ')[0])) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column}`)
@@ -60,7 +60,9 @@ function setupDb(db) {
   return db
 }
 
-function createApp({ db: suppliedDb, chain = realChain } = {}) {
+function createApp({ db: suppliedDb, chain = realChain, photoDirectory = photosPath } = {}) {
+  const photoDir = photoDirectory
+  mkdirSync(photoDir, { recursive: true })
   const db = setupDb(suppliedDb || new Database(databasePath))
   const app = express()
   const pendingBuys = new Map()
@@ -72,9 +74,9 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
     id: meal.id, stallId: meal.stall_id, firstName: meal.first_name || undefined,
     message: meal.message || undefined, amountCents: meal.amount_cents, status: meal.status,
     boughtAt: meal.bought_at, expiresAt: meal.expires_at, servedAt: meal.served_at || undefined,
-    photoUrl: meal.photo_path ? `/photos/${encodeURIComponent(basename(meal.photo_path))}` : undefined,
-    paymentLink: meal.payment_link || undefined, serveLink: meal.serve_tx || undefined,
-    refundLink: meal.refund_tx || undefined,
+    photoUrl: meal.status === 'Served' && meal.photo_path ? `/photos/${encodeURIComponent(basename(meal.photo_path))}` : undefined,
+    paymentLink: meal.payment_link || undefined, serveLink: meal.status === 'Served' ? meal.serve_tx || undefined : undefined,
+    refundLink: meal.status === 'Returned' ? meal.refund_tx || undefined : undefined,
   } : null
   const waitingCount = (stallId) => db.prepare("SELECT COUNT(*) AS count FROM meals WHERE stall_id = ? AND status = 'Waiting'").get(stallId).count || 0
   const publicStall = (stall) => ({ id: stall.id, name: stall.name, city: stall.city, address: stall.address,
@@ -84,25 +86,32 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
   const photoIsSafe = (photoData) => {
     if (!photoData) return true
     if (photoData === 'plate') return true
-    if (typeof photoData !== 'string' || !/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(photoData)) return false
-    const bytes = Buffer.from(photoData.split(',')[1] || '', 'base64')
-    if (!bytes.length || bytes.length > 300 * 1024) return false
-    const jpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
-    const png = bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-    const webp = bytes.length >= 12 && bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP'
-    return jpeg || png || webp
+    try { cleanPhoto(photoData); return true } catch { return false }
   }
 
   const savePhoto = (mealId, photoData) => {
     if (!photoData || photoData === 'plate') return null
-    const match = /^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/i.exec(photoData)
-    if (!match) return null
-    const path = resolve(photoDir, `${mealId}.jpg`)
-    writeFileSync(path, Buffer.from(match[2], 'base64'), { mode: 0o600 })
+    const image = cleanPhoto(photoData)
+    const path = resolve(photoDir, `${mealId}.${image.extension}`)
+    writeFileSync(path, image.bytes, { mode: 0o600 })
     return path
   }
 
-  const findMealForCard = ({ stallId, mealId, secret, backupCode }) => {
+  const refreshMeal = async (meal) => {
+    if (!meal?.chain_meal_id) return meal
+    const current = await chain.getMeal(meal.chain_meal_id)
+    if (!current) throw new Error('chain_unavailable')
+    const amount = Math.round(Number(current.amount) / 100_000)
+    db.prepare('UPDATE meals SET status=?,amount_cents=?,expires_at=? WHERE id=?').run(current.status, amount, asIso(current.expires_at), meal.id)
+    if (current.status === 'Served' || current.status === 'Returned') {
+      const column = current.status === 'Served' ? 'serve_tx' : 'refund_tx'
+      const record = await chain.confirmedPayment(meal[column])
+      db.prepare(`UPDATE meals SET ${column}=? WHERE id=?`).run(record?.link || null, meal.id)
+      if (record && current.status === 'Served') db.prepare('UPDATE meals SET served_at=COALESCE(served_at,?) WHERE id=?').run(asIso(record.createdAt), meal.id)
+    }
+    return db.prepare('SELECT * FROM meals WHERE id=?').get(meal.id)
+  }
+  const findMealForCard = async ({ stallId, mealId, secret, backupCode, allowRecovery = false, sending = false }) => {
     const candidate = mealId
       ? db.prepare('SELECT * FROM meals WHERE id = ?').get(mealId)
       : backupCode ? db.prepare('SELECT * FROM meals WHERE backup_fingerprint = ? ORDER BY bought_at DESC LIMIT 1').get(fingerprintSecret(backupPreimage(backupCode))) : null
@@ -111,9 +120,13 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
     const secretMatches = secret ? candidate.secret_fingerprint === fingerprintSecret(secret) : false
     const backupMatches = backupCode ? candidate.backup_fingerprint === fingerprintSecret(backupPreimage(backupCode)) : false
     if (!secretMatches && !backupMatches) return { error: 'wrong_code' }
-    if (candidate.status !== 'Waiting') return { error: 'already_used' }
-    if (new Date(candidate.expires_at).getTime() <= Date.now()) return { error: 'expired' }
-    return { meal: candidate }
+    // The serve invocation itself checks the latest status and expiry on Stellar.
+    if (sending && candidate.status === 'Waiting') return { meal: candidate }
+    const [current, now] = await Promise.all([refreshMeal(candidate), chain.ledgerTime()])
+    if (current.status === 'Served' && allowRecovery && !current.serve_complete) return { meal: current }
+    if (current.status !== 'Waiting') return { error: 'already_used' }
+    if (Date.parse(current.expires_at) <= now * 1000) return { error: 'expired' }
+    return { meal: current }
   }
 
   app.get('/api/health', async (_req, res) => {
@@ -160,6 +173,7 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
   app.post('/api/meals/submit', async (req, res) => {
     const { signedXdr, firstName = '', message = '', email = '' } = req.body || {}
     if (!signedXdr) return fail(res, 400, 'missing_payment')
+    if (String(message).length > 80) return fail(res, 400, 'message_too_long')
     try {
       const preparedHash = chain.paymentHash(signedXdr)
       if (!pendingBuys.has(preparedHash)) return fail(res, 400, 'payment_not_found')
@@ -179,13 +193,14 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
   app.get('/api/meals/:id', async (req, res) => {
     const meal = db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id)
     if (!meal) return fail(res, 404, 'not_found')
-    res.json(publicMeal(meal))
+    try { res.json(publicMeal(await refreshMeal(meal))) }
+    catch { fail(res, 502, 'network_failure') }
   })
 
-  app.post('/api/counter/check', (req, res) => {
+  app.post('/api/counter/check', async (req, res) => {
     const { stallId, mealId, secret, backupCode } = req.body || {}
     if (!stallId || (!mealId && !secret && !backupCode)) return fail(res, 400, 'missing_fields')
-    const result = findMealForCard({ stallId, mealId, secret, backupCode })
+    const result = await findMealForCard({ stallId, mealId, secret, backupCode })
     if (result.error) return fail(res, result.error === 'wrong_stall' ? 403 : result.error === 'wrong_code' ? 401 : 409, result.error)
     res.json(publicMeal(result.meal))
   })
@@ -194,14 +209,16 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
     const { stallId, secret, backupCode, photoData } = req.body || {}
     if (!stallId || (!secret && !backupCode)) return fail(res, 400, 'missing_fields')
     if (!photoIsSafe(photoData)) return fail(res, 413, 'photo_too_large_or_not_a_photo')
-    const result = findMealForCard({ stallId, mealId: req.params.id, secret, backupCode })
+    const result = await findMealForCard({ stallId, mealId: req.params.id, secret, backupCode, allowRecovery: true, sending: true })
     if (result.error) return fail(res, result.error === 'wrong_stall' ? 403 : result.error === 'wrong_code' ? 401 : 409, result.error)
     const preimage = secret || backupPreimage(backupCode)
+    const path = photoData ? savePhoto(result.meal.id, photoData) : result.meal.photo_path
+    if (path) db.prepare('UPDATE meals SET photo_path=? WHERE id=?').run(path, result.meal.id)
     let payment
-    try { payment = result.meal.chain_meal_id ? await chain.serve({ mealId: result.meal.chain_meal_id, preimage }) : null } catch (error) { return fail(res, 502, error instanceof Error ? error.message : 'payment_not_sent') }
-    const path = savePhoto(result.meal.id, photoData)
-    const servedAt = new Date().toISOString()
-    const changed = db.prepare("UPDATE meals SET status='Served',served_at=?,photo_path=?,serve_tx=? WHERE id=? AND status='Waiting'").run(servedAt, path, payment?.link || null, result.meal.id)
+    try { payment = result.meal.status === 'Served' ? { link: result.meal.serve_tx } : await chain.serve({ mealId: result.meal.chain_meal_id, preimage, onSubmitted: ({ link }) => db.prepare('UPDATE meals SET serve_tx=? WHERE id=?').run(link, result.meal.id) }) } catch { return fail(res, 502, 'payment_not_sent') }
+    const confirmed = payment?.createdAt ? payment : await chain.confirmedPayment(payment?.link || db.prepare('SELECT serve_tx FROM meals WHERE id=?').get(result.meal.id).serve_tx)
+    const servedAt = confirmed ? asIso(confirmed.createdAt) : null
+    const changed = db.prepare("UPDATE meals SET status='Served',served_at=COALESCE(?,served_at),photo_path=?,serve_tx=?,serve_complete=1 WHERE id=? AND status IN ('Waiting','Served') AND serve_complete=0").run(servedAt, path || null, confirmed?.link || null, result.meal.id)
     if (changed.changes !== 1) return fail(res, 409, 'already_used')
     if (result.meal.email && process.env.POSTMARK_SERVER_TOKEN && process.env.POSTMARK_FROM_EMAIL) {
       const mealUrl = `${process.env.PUBLIC_SITE_URL || 'https://pendiente.54-154-121-30.sslip.io'}/meal/${result.meal.id}`
@@ -221,21 +238,19 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
     if (!onChain) return fail(res, 502, 'chain_unavailable')
     if (Number(onChain.expires_at) > await chain.ledgerTime()) return fail(res, 409, 'not_expired')
     try {
-      const payment = meal.chain_meal_id ? await chain.refund(meal.chain_meal_id) : null
-      db.prepare("UPDATE meals SET status='Returned',refund_tx=? WHERE id=? AND status='Waiting'").run(payment?.link || null, meal.id)
+      const payment = await chain.refund(meal.chain_meal_id, ({ link }) => db.prepare('UPDATE meals SET refund_tx=? WHERE id=?').run(link, meal.id))
+      db.prepare("UPDATE meals SET status='Returned',refund_tx=COALESCE(?,refund_tx) WHERE id=? AND status='Waiting'").run(payment?.link || null, meal.id)
       res.json(publicMeal(db.prepare('SELECT * FROM meals WHERE id = ?').get(meal.id)))
     } catch (error) { fail(res, 502, error instanceof Error ? error.message : 'return_not_sent') }
   })
 
-  app.get('/api/proof', (req, res) => {
+  app.get('/api/proof', async (req, res) => {
+    await reconcile()
     const limit = 20
     const offset = Math.max(0, Number(req.query.cursor || 0) || 0)
     const items = db.prepare("SELECT m.*,s.name AS stall_name FROM meals m JOIN stalls s ON s.id=m.stall_id WHERE m.status != 'Waiting' ORDER BY m.bought_at DESC LIMIT ? OFFSET ?").all(limit, offset)
       .map((meal) => ({ id: meal.id, stallId: meal.stall_id, stall: meal.stall_name, amountCents: meal.amount_cents, status: meal.status, boughtAt: meal.bought_at, servedAt: meal.served_at, firstNameInitial: meal.first_name ? `${meal.first_name[0]}.` : undefined, photoUrl: meal.photo_path ? `/photos/${encodeURIComponent(basename(meal.photo_path))}` : undefined, paymentLink: meal.payment_link, serveLink: meal.serve_tx, refundLink: meal.refund_tx }))
-    const totals = db.prepare(`SELECT COUNT(*) AS bought, COALESCE(SUM(CASE WHEN status='Served' THEN 1 ELSE 0 END),0) AS served,
-      COALESCE(SUM(CASE WHEN status='Returned' THEN 1 ELSE 0 END),0) AS returned, COALESCE(SUM(CASE WHEN status='Served' THEN amount_cents ELSE 0 END),0) AS paid,
-      COALESCE(SUM(CASE WHEN status='Returned' THEN amount_cents ELSE 0 END),0) AS returnedCents FROM meals`).get()
-    res.json({ totals: { bought: totals.bought, served: totals.served, returned: totals.returned, paidCents: totals.paid, returnedCents: totals.returnedCents, waiting: db.prepare("SELECT COUNT(*) AS count FROM meals WHERE status='Waiting'").get().count }, items, nextCursor: items.length === limit ? String(offset + limit) : null })
+    res.json({ totals: await chain.mealTotals(), items, nextCursor: items.length === limit ? String(offset + limit) : null })
   })
 
   app.post('/api/practice/fund', async (req, res) => {
@@ -258,7 +273,7 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
     const chainStallId = Number(db.prepare('SELECT COALESCE(MAX(chain_stall_id),0)+1 AS next FROM stalls').get().next)
     try { await chain.addStall({ stallId: chainStallId, payout: payoutAddress, price: Math.round(Number(priceCents) * 100_000), active: true }) } catch (error) { return fail(res, 502, error instanceof Error ? error.message : 'stall_not_added') }
     const id = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || `stall-${Date.now()}`
-    db.prepare(`INSERT INTO stalls(id,name,city,address,price_cents,payout_address,photo,active,created_at,chain_stall_id) VALUES (?,?,?,?,?,?,?,?,?,?)`).run(id, name, city, address, Number(priceCents), payoutAddress, photo, 1, new Date().toISOString(), chainStallId)
+    db.prepare(`INSERT INTO stalls(id,name,city,address,price_cents,payout_address,photo,active,created_at,chain_stall_id) VALUES (?,?,?,?,?,?,?,?,?,?)`).run(id, name, city, address, Number(priceCents), payoutAddress, photo === 'plate' ? photo : cleanPhoto(photo).dataUrl, 1, new Date().toISOString(), chainStallId)
     res.status(201).json(publicStall(db.prepare('SELECT * FROM stalls WHERE id=?').get(id)))
   })
 
@@ -279,9 +294,8 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
   async function reconcile() {
     for (const meal of db.prepare("SELECT * FROM meals WHERE status='Waiting' AND chain_meal_id IS NOT NULL").all()) {
       try {
-        const current = await chain.getMeal(meal.chain_meal_id)
-        if (current?.status && current.status !== meal.status) {
-          db.prepare('UPDATE meals SET status=? WHERE id=?').run(current.status, meal.id)
+        const current = await refreshMeal(meal)
+        if (current.status !== meal.status) {
           console.log(`reconciled ${meal.id} to ${current.status}`)
         }
       } catch (error) { console.error(`reconcile failed for ${meal.id}: ${error instanceof Error ? error.message : error}`) }
@@ -298,8 +312,8 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
           continue
         }
         if (Number(current.expires_at) > await chain.ledgerTime()) continue
-        const payment = await chain.refund(meal.chain_meal_id)
-        db.prepare("UPDATE meals SET status='Returned',refund_tx=? WHERE id=? AND status='Waiting'").run(payment?.link || null, meal.id)
+        const payment = await chain.refund(meal.chain_meal_id, ({ link }) => db.prepare('UPDATE meals SET refund_tx=? WHERE id=?').run(link, meal.id))
+        db.prepare("UPDATE meals SET status='Returned',refund_tx=COALESCE(?,refund_tx) WHERE id=? AND status='Waiting'").run(payment?.link || null, meal.id)
       } catch (error) { console.error(`return failed for ${meal.id}: ${error instanceof Error ? error.message : error}`) }
     }
   }
@@ -320,6 +334,11 @@ function createApp({ db: suppliedDb, chain = realChain } = {}) {
     }
   }
   app.locals.db = db
+  app.use((error, req, res, _next) => {
+    console.error(`Request failed: ${req.method} ${req.path} (${error.name})`)
+    if (error.type === 'entity.too.large') return fail(res, 413, 'photo_too_large_or_not_a_photo')
+    fail(res, 502, 'network_failure')
+  })
   return app
 }
 

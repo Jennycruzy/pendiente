@@ -8,11 +8,17 @@ const buyer = Keypair.random() // Throwaway testnet key stays in memory.
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex')
 const api = async (path, body) => {
   const response = await fetch(site + path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(120_000) })
-  const result = await response.json()
+  const text = await response.text()
+  if (!response.headers.get('content-type')?.includes('application/json')) throw new Error(`${path}: ${response.status} non-JSON response`)
+  const result = JSON.parse(text)
   if (!response.ok) throw new Error(`${path}: ${response.status} ${JSON.stringify(result)}`)
   return result
 }
-const health = await api('/api/health')
+let health
+for (let attempt = 0; attempt < 24; attempt++) {
+  try { health = await api('/api/health'); break }
+  catch (error) { if (attempt === 23) throw error; await new Promise((resolve) => setTimeout(resolve, 5000)) }
+}
 assert.equal(health.network, 'testnet')
 const friendbot = await fetch(`https://friendbot.stellar.org?addr=${buyer.publicKey()}`, { signal: AbortSignal.timeout(60_000) })
 assert.equal(friendbot.ok, true, 'Friendbot must fund the throwaway buyer')
@@ -35,18 +41,25 @@ async function buy() {
   const tx = TransactionBuilder.fromXDR(prepared.xdr, Networks.TESTNET)
   tx.sign(buyer)
   const meal = await api('/api/meals/submit', { signedXdr: tx.toXDR(), firstName: 'Test', message: '', email: '' })
+  const replay = await api('/api/meals/submit', { signedXdr: tx.toXDR(), firstName: 'Test', message: '', email: '' })
+  assert.equal(replay.id, meal.id, 'Retrying a signed payment must return the same meal')
   assert.equal(meal.status, 'Waiting')
   console.log('buy', meal.paymentLink)
   return { meal, secret, backupCode }
 }
 
+const buyStarted = performance.now()
 const first = await buy()
+console.log(`buy API seconds ${((performance.now() - buyStarted) / 1000).toFixed(2)}`)
 const { result: chainMeal } = await rpcServer.queryContract(health.contract, 'get_meal', { meal_id: BigInt(first.meal.id.replace('meal-', '')) }, Networks.TESTNET)
 const payoutBefore = await balance(chainMeal.payout)
+const serveStarted = performance.now()
 const served = await api(`/api/meals/${first.meal.id}/serve`, { stallId: stall.id, secret: first.secret })
+console.log(`serve API seconds ${((performance.now() - serveStarted) / 1000).toFixed(2)}`)
 assert.equal(served.status, 'Served')
 assert.equal(await balance(chainMeal.payout) - payoutBefore, BigInt(first.meal.amountCents) * 100_000n)
 console.log('QR serve', served.serveLink)
+if (process.env.E2E_ONLY_SERVE === '1') { console.log('PASS: measured buyer payment and QR serve'); process.exit(0) }
 const second = await buy()
 const backupServed = await api(`/api/meals/${second.meal.id}/serve`, { stallId: stall.id, backupCode: second.backupCode.match(/.{4}/g).join('-').toLowerCase() })
 assert.equal(backupServed.status, 'Served')
