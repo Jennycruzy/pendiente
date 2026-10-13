@@ -2,42 +2,25 @@
 
 Buy a meal for someone back home. The stall only gets paid when the plate is served.
 
-![A Pendiente card ready to scan](docs/card-scan-placeholder.svg)
-
-Try it: [practice mode](https://pendiente.54-154-121-30.sslip.io) · [proof page](https://pendiente.54-154-121-30.sslip.io/proof).
+Try it: [live testnet site](https://pendiente.54-154-121-30.sslip.io) · [proof page](https://pendiente.54-154-121-30.sslip.io/proof) · practice is available in the local build.
 
 ## How it works
 
-1. **Buy.** Choose a stall, add a first name, and approve $3.00.
-2. **Card.** Send the paper meal card on WhatsApp or print it.
+1. **Buy.** Choose a stall and approve its listed meal price.
+2. **Card.** Send the meal card on WhatsApp or print it.
 3. **Scan.** The stall scans the card when the plate is ready.
-4. **Paid.** The stall receives the meal price. You see the plate photo.
+4. **Paid.** The stall receives the price. You see the plate photo.
 
 ## Why Stellar
 
-- The fee is under one cent.
-- The stall is paid in about 5 seconds.
+- The buyer can approve one meal payment.
+- The stall receives the listed price after a valid scan.
 - Anyone can check the public payment record.
 
 ## What is real
 
-This build starts in practice mode with play money. The [testnet locker](https://stellar.expert/explorer/testnet/tx/e26ab681325c264554243ff6aaa9865e6c49dfdb675214027d8643d15ab68179) has served one test meal and returned another. Real meals served: 0.
-
-## Run it locally
-
-```sh
-npm install
-ADMIN_KEY=choose-a-local-key npm run dev:all
-```
-
-Open `http://localhost:5173`. The server uses SQLite. The browser uses local practice data when the server is not running.
-
-The default build is practice mode. Copy `.env.example` only when changing the mode.
-
-The private stall form is at `/admin`. It needs the same `ADMIN_KEY`.
+The testnet locker is live and uses play-USDC issued for this demo. Unused meals expire after 120 seconds. Verified meal journeys: 0. The setup links are in [docs/VERIFIED.md](docs/VERIFIED.md). The stall payout choice and complete phone demo are pending.
 
 ## Under the hood
 
-The locker is a Stellar smart contract (a small program on Stellar that nobody can change). It holds USDC (digital dollars) for each meal. A React and TypeScript site creates cards and shows status. A Node server stores stall details and plate photos in SQLite. The server sends the serve and refund calls and pays their tiny network fee. Card secrets stay in the buyer’s browser and on the paper card. The public meal page never includes a secret.
-
-Build the locker with `stellar contract build`; it creates the WebAssembly file used by Stellar.
+The locker is a Stellar smart contract (a small program on Stellar that nobody can change). It holds USDC (digital dollars) for each meal. A React and TypeScript site creates cards and shows status. A Node server stores stall details and plate photos. The server sends serve and return calls and pays their tiny network fee. Card secrets stay in the buyer’s browser and on the paper card. The public meal page never includes a secret.
